@@ -68,6 +68,22 @@ The repo is https://github.com/Agozie180/CourtAgent. If the code is not there ye
 2. In a new chat, ask Claude to attach it with push access. If the session cannot see it, give the GitHub app access to this repo: claude.ai Settings -> Connectors (reconnect GitHub and allow the CourtAgent repo). Then ask again.
 3. Or push from your own computer: unzip or copy the project, then `git remote add origin https://github.com/Agozie180/CourtAgent.git && git push -u origin main`.
 
+## RULES FROM THE USER (follow every time)
+- AUTHORSHIP: every commit must be authored and committed by Agozie180 only (git user.name "Agozie180", email 137266828+Agozie180@users.noreply.github.com). NO "Co-Authored-By" or "Claude-Session" trailers, no other contributor. History was rewritten on 2026-10-13 to remove them; do not add them back. Check with `git log --format='%an <%ae> | %cn' ` before pushing.
+- Apply the user's playbook: github.com/Agozie180/skill.md (SKILL.md, "Hackathon-Winning Playbook"; attach that repo with read access and read it at the start of a new chat).
+- Keep everything small. Ask the user before big scope changes.
+
+## Playbook applied to CourtAgent (from skill.md)
+Circuit: crypto protocol / legal-tech (judges likely lawyers and compliance people; the repo AND a live Sepolia deploy are scored).
+- L5 Thesis enforced in code: "The AI explains and flags; it never writes or changes the legal terms." Already true: the agreement and letters are deterministic templates (lib/domain), AI flags are capped at "medium", AI output is sanitized. TODO: add one test file named for the thesis (for example lib/ai/thesis.test.ts) proving that (a) the agreement text is identical with and without AI, (b) AI cannot raise a risk to High, (c) a one-word change gives a different hash that is not registered.
+- L1 Prize surface: enter every track the one build fits: LegalTech & RegTech (main), Web3 for Social Good (widow module), AI x Blockchain (agent). Put the target tracks and the prize pool in the README header.
+- L9 README is the judge's answer sheet: bold thesis line, links table (live demo, demo video, /verify page, contract on Sepolia explorer, DoraHacks event), diagrams (Mermaid, not screenshots), "what is used / what is not" table, "thesis enforced" table, "measured" table (test counts, reproduce commands), Limitations, Disclosures.
+- L10 One-click runnable: Demo Mode needs no wallet or key; deterministic core runs with no API key; link a Sepolia faucet; copy-paste example prompts in the README.
+- L11 Demo shows the guardrail, not just the happy path: a landlord document that scores High, a one-word change that breaks the hash on the verify page, a landlord trying to sign when not a party.
+- L12 Honesty: Limitations section (only Lagos legal rules verified; not legal advice; AI untested with real keys unless the user tests it; contract on testnet only; document text is stored only in the browser or in the share link).
+- L13 Hygiene: no secrets in git; before final submission remove or gitignore working files (this Handoff.md, task notes) and any agent instruction files; clean labelled commits.
+- Submission mechanics: follow the DoraHacks form exactly, submit before 2026/11/01 02:01 (Lagos time is UTC+1) with buffer.
+
 ## Verified law notes (checked 2026-10-13; have a lawyer review before submission)
 - Ukeje v Ukeje (Supreme Court, 2014): Igbo custom excluding daughters from inheritance is void because it conflicts with the Constitution (s.42). Discrimination reportedly continues in practice. National in effect.
 - The Supreme Court has held that a widow has a right to occupy her deceased husband's property (Nzekwu line of cases).
