@@ -1,4 +1,4 @@
-import { checkAdvanceRent } from "./lagos-tenancy";
+import { checkAdvanceRentFor } from "./tenancy-rules";
 
 export type RiskLevel = "Low" | "Medium" | "High";
 export type Severity = "high" | "medium" | "low";
@@ -11,6 +11,8 @@ export type RiskFlag = {
 };
 
 export type CheckInput = {
+  /** Nigerian state of the property, or "FCT". Statutory checks run only for states CourtAgent has verified. */
+  state: string;
   claimedLandlordName: string;
   /** Text copied from the landlord's documents, receipts, WhatsApp messages or listing. */
   documentText: string;
@@ -97,8 +99,9 @@ export function runRulesCheck(input: CheckInput): RiskFlag[] {
   const { answers } = input;
 
   if (input.advanceMonths !== null) {
-    const advance = checkAdvanceRent(input.advanceMonths);
+    const advance = checkAdvanceRentFor(input.state, input.advanceMonths);
     if (!advance.ok) add("ADVANCE_OVER_LIMIT", "high", advance.message);
+    else if (!advance.checked) add("ADVANCE_UNCHECKED", "low", advance.message);
   }
   if (!answers.inspectedInPerson) {
     add("NOT_INSPECTED", "high", "You have not inspected the property in person. Never pay for a place you have not seen.");
@@ -116,7 +119,7 @@ export function runRulesCheck(input: CheckInput): RiskFlag[] {
     add("PERSONAL_ACCOUNT", "medium", "You are asked to pay into an account that does not carry the landlord's name. Pay only to the person named on the agreement.");
   }
   if (!answers.receiptPromised) {
-    add("NO_RECEIPT", "medium", "No receipt has been promised. A landlord in Lagos must issue a receipt for rent paid.");
+    add("NO_RECEIPT", "medium", "No receipt has been promised. Insist on a receipt for every payment, showing the date, amount and period it covers.");
   }
 
   const text = input.documentText.trim();

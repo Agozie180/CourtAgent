@@ -1,6 +1,8 @@
 import { TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
+import { findStateInText, isNigerianState } from "./jurisdiction";
 
 export type IntakeFields = {
+  state: string | null; // Nigerian state or "FCT"
   // Step 1: what the tenant is looking for
   budgetNgn: number | null; // yearly rent budget
   bedrooms: number | null;
@@ -20,6 +22,7 @@ export type IntakeFields = {
 export type IntakeKey = keyof IntakeFields;
 
 export const emptyIntake = (): IntakeFields => ({
+  state: null,
   budgetNgn: null,
   bedrooms: null,
   parlour: null,
@@ -35,6 +38,7 @@ export const emptyIntake = (): IntakeFields => ({
 });
 
 export const INTAKE_ORDER: IntakeKey[] = [
+  "state",
   "budgetNgn",
   "bedrooms",
   "parlour",
@@ -50,10 +54,11 @@ export const INTAKE_ORDER: IntakeKey[] = [
 ];
 
 const QUESTIONS: Record<IntakeKey, string> = {
-  budgetNgn: "Welcome. What is your yearly rent budget in naira? (For example: 1.2 million)",
+  state: "Welcome. Which state is the property in? (For example: Lagos, Abuja, Enugu, Rivers)",
+  budgetNgn: "What is your yearly rent budget in naira? (For example: 1.2 million)",
   bedrooms: "How many bedrooms do you need? (A self-contain counts as 1.)",
   parlour: "Do you want a parlour (living room) as well? (yes or no)",
-  area: "Which area of Lagos do you prefer? (For example: Yaba, Ikeja, Lekki, Surulere)",
+  area: "Which area or town do you prefer? (For example: Yaba, Wuse, Independence Layout, GRA)",
   landlordName: "Great. When you have found a place, what is the landlord's full name as shown on their documents?",
   tenantName: "What is your own full name, as it should appear on the agreement?",
   annualRentNgn: "What yearly rent has the landlord quoted, in naira?",
@@ -78,6 +83,7 @@ export function isComplete(fields: IntakeFields): boolean {
 
 export function describeFields(fields: IntakeFields): string[] {
   const lines: string[] = [];
+  if (fields.state) lines.push(`State: ${fields.state === "FCT" ? "FCT (Abuja)" : fields.state}`);
   if (fields.budgetNgn !== null) lines.push(`Budget: ${formatNgn(fields.budgetNgn)} a year`);
   if (fields.bedrooms !== null) lines.push(`Bedrooms: ${fields.bedrooms}`);
   if (fields.parlour !== null) lines.push(`Parlour: ${fields.parlour ? "yes" : "no"}`);
@@ -101,7 +107,7 @@ export function formatNgn(amount: number): string {
 // Offline extraction (no API key needed). The AI layer can replace or refine this.
 // ---------------------------------------------------------------------------------------------
 
-const LAGOS_AREAS = [
+const KNOWN_AREAS = [
   "victoria island", "ikoyi", "lekki", "ajah", "yaba", "surulere", "ikeja", "maryland", "gbagada", "magodo",
   "ogba", "ojodu", "berger", "ketu", "ikorodu", "festac", "mushin", "oshodi", "isolo", "apapa", "agege",
   "alimosho", "egbeda", "ipaja", "iyana ipaja", "badagry", "epe", "ojota", "ilupeju", "oshodi", "anthony",
@@ -208,7 +214,10 @@ export function parseIntakeOffline(message: string, expected: IntakeKey | null):
   if (!text) return found;
   const lower = text.toLowerCase();
 
-  const area = LAGOS_AREAS.find((name) => lower.includes(name));
+  const foundState = findStateInText(text);
+  if (foundState) found.state = foundState;
+
+  const area = KNOWN_AREAS.find((name) => lower.includes(name));
   if (area) found.area = area.replace(/\b\w/g, (c) => c.toUpperCase());
   if (/\bparlou?r\b/.test(lower) && expected !== "parlour") {
     found.parlour = !/\b(no|without|don'?t)\b[^.]*parlou?r/.test(lower);
@@ -219,6 +228,8 @@ export function parseIntakeOffline(message: string, expected: IntakeKey | null):
   if (bedrooms !== null && expected !== "bedrooms") found.bedrooms = bedrooms;
 
   switch (expected) {
+    case "state":
+      break; // handled above by findStateInText
     case "budgetNgn": {
       const value = parseMoney(text);
       if (value !== null) found.budgetNgn = value;
@@ -298,6 +309,7 @@ export function sanitizeFields(input: unknown): Partial<IntakeFields> {
   const str = (value: unknown): string | null =>
     typeof value === "string" && value.trim().length >= 2 && value.trim().length <= 80 ? value.trim() : null;
 
+  if (isNigerianState(raw.state)) out.state = raw.state;
   const budget = num(raw.budgetNgn, 1, 10_000_000_000);
   if (budget !== null) out.budgetNgn = budget;
   const bedrooms = num(raw.bedrooms, 1, 20);

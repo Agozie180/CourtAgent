@@ -11,7 +11,9 @@ import {
   parseTenancyType,
   sanitizeFields,
 } from "./intake";
-import { checkAdvanceRent, defaultNotice } from "./lagos-tenancy";
+import { defaultNotice } from "./lagos-tenancy";
+import { checkAdvanceRentFor, noticePeriodFor, ruleFor } from "./tenancy-rules";
+import { findStateInText, isNigerianState, stateLabel } from "./jurisdiction";
 import { buildAgreement, endDate, validateTerms, type TenancyTerms } from "./agreement";
 import { levelFor, nameAppearsIn, runCheck, type CheckInput } from "./risk";
 import { buildExitResponseLetter, buildWidowLetter } from "./letters";
@@ -20,6 +22,7 @@ const TENANT = "0x0000000000000000000000000000000000007e01";
 const LANDLORD = "0x000000000000000000000000000000000001a2d1";
 
 const terms: TenancyTerms = {
+  state: "Lagos",
   landlordName: "Chief Adewale Bello",
   tenantName: "Ada Okeke",
   landlordWallet: LANDLORD,
@@ -37,9 +40,9 @@ const terms: TenancyTerms = {
 
 describe("Lagos tenancy rules", () => {
   it("caps advance rent at 12 months for a new tenant", () => {
-    expect(checkAdvanceRent(12).ok).toBe(true);
-    expect(checkAdvanceRent(24).ok).toBe(false);
-    expect(checkAdvanceRent(0).ok).toBe(false);
+    expect(checkAdvanceRentFor("Lagos", 12).ok).toBe(true);
+    expect(checkAdvanceRentFor("Lagos", 24).ok).toBe(false);
+    expect(checkAdvanceRentFor("Lagos", 0).ok).toBe(false);
   });
   it("gives the default notice periods", () => {
     expect(defaultNotice("yearly")).toBe("6 months");
@@ -86,8 +89,8 @@ describe("intake parsing (offline)", () => {
   });
   it("walks the fields in order until complete", () => {
     let fields = emptyIntake();
-    expect(nextMissing(fields)).toBe("budgetNgn");
-    fields = mergeFields(fields, { budgetNgn: 1_200_000, bedrooms: 2 });
+    expect(nextMissing(fields)).toBe("state");
+    fields = mergeFields(fields, { state: "Lagos", budgetNgn: 1_200_000, bedrooms: 2 });
     expect(nextMissing(fields)).toBe("parlour");
     expect(isComplete(fields)).toBe(false);
   });
@@ -130,6 +133,7 @@ describe("agreement builder", () => {
 
 describe("scam risk check", () => {
   const safe: CheckInput = {
+    state: "Lagos",
     claimedLandlordName: "Chief Adewale Bello",
     documentText: "Receipt issued by Chief Adewale Bello for the flat at Lekki.",
     advanceMonths: 12,
@@ -180,6 +184,7 @@ describe("scam risk check", () => {
 describe("letters", () => {
   it("builds the exit-demand reply from the signed terms", () => {
     const { letter, notes } = buildExitResponseLetter({
+      state: "Lagos",
       tenantName: terms.tenantName,
       landlordName: terms.landlordName,
       propertyAddress: terms.propertyAddress,
@@ -202,6 +207,7 @@ describe("letters", () => {
   });
   it("builds the widow notice with the right legal lines", () => {
     const base = {
+      state: "Lagos",
       widowName: "Mrs Ngozi Okoro",
       deceasedName: "Emeka Okoro",
       propertyDescription: "the family house at 4 Bode Street, Surulere, Lagos",
@@ -219,5 +225,75 @@ describe("letters", () => {
     expect(customary.letter).not.toContain("Ukeje");
     expect(customary.letter).not.toContain("Administration of Estates Law");
     expect(customary.letter).toContain("customary marriage");
+  });
+});
+
+describe("Nigeria-wide support", () => {
+  it("knows all 36 states plus FCT and finds them in text", () => {
+    expect(isNigerianState("Enugu")).toBe(true);
+    expect(isNigerianState("Texas")).toBe(false);
+    expect(findStateInText("a flat in Abuja")).toBe("FCT");
+    expect(findStateInText("somewhere in Akwa Ibom")).toBe("Akwa Ibom");
+    expect(findStateInText("Rivers please")).toBe("Rivers");
+    expect(findStateInText("hello")).toBeNull();
+    expect(stateLabel("FCT")).toBe("Federal Capital Territory, Abuja");
+    expect(stateLabel("Enugu")).toBe("Enugu State");
+  });
+  it("makes statutory claims only for verified states", () => {
+    expect(ruleFor("Lagos")).not.toBeNull();
+    expect(ruleFor("Enugu")).toBeNull();
+    const unchecked = checkAdvanceRentFor("Enugu", 24);
+    expect(unchecked.ok).toBe(true);
+    expect(unchecked.checked).toBe(false);
+    expect(noticePeriodFor("Enugu", "yearly")).toBeNull();
+    expect(noticePeriodFor("Enugu", "yearly", "3 months")).toBe("3 months");
+  });
+  it("asks for an agreed notice period outside verified states", () => {
+    const enugu = { ...terms, state: "Enugu" };
+    const issues = validateTerms(enugu);
+    expect(issues.map((issue) => issue.field)).toEqual(["agreedNotice"]);
+    expect(validateTerms({ ...enugu, agreedNotice: "3 months" })).toEqual([]);
+    const text = buildAgreement({ ...enugu, agreedNotice: "3 months" });
+    expect(text).toContain("Enugu State, Nigeria");
+    expect(text).toContain("at least 3 months");
+    expect(text).toContain("has not yet checked the tenancy law of Enugu State");
+    expect(text).not.toContain("Lagos State Tenancy Law 2011");
+  });
+  it("does not apply the Lagos advance-rent limit to other states, but notes it was not checked", () => {
+    const result = runCheck({
+      state: "Enugu",
+      claimedLandlordName: "Chief Adewale Bello",
+      documentText: "",
+      advanceMonths: 24,
+      answers: {
+        inspectedInPerson: true,
+        sawOriginalTitle: true,
+        dealingWithAgent: false,
+        agentHasAuthorityLetter: false,
+        askedToPayBeforeViewing: false,
+        paymentToPersonalAccount: false,
+        receiptPromised: true,
+      },
+    });
+    expect(result.flags.map((flag) => flag.id)).toEqual(["ADVANCE_UNCHECKED"]);
+    expect(result.level).toBe("Low");
+  });
+  it("keeps Lagos-only legal lines out of other states' letters but keeps Ukeje national", () => {
+    const letter = buildWidowLetter({
+      state: "Enugu",
+      widowName: "Mrs Ngozi Okoro",
+      deceasedName: "Emeka Okoro",
+      propertyDescription: "the family house in Enugu",
+      recordHash: "0xdef",
+      recordDate: "2026-10-20",
+      hasWill: false,
+      addressedTo: "The family of the late Mr Emeka Okoro",
+      letterDate: "2026-11-01",
+      marriageType: "statutory",
+      hasDaughters: true,
+    }).letter;
+    expect(letter).not.toContain("Administration of Estates Law of Lagos State");
+    expect(letter).toContain("Enugu State");
+    expect(letter).toContain("Ukeje v Ukeje (2014)");
   });
 });

@@ -1,11 +1,8 @@
 import { endDate, noticeText } from "./agreement";
 import { formatNgn } from "./intake";
-import {
-  DISCLAIMER,
-  EVICTION_PROCESS_NOTE,
-  TENANCY_TYPE_LABEL,
-  type TenancyType,
-} from "./lagos-tenancy";
+import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
+import { stateLabel } from "./jurisdiction";
+import { evictionNoteFor } from "./tenancy-rules";
 
 export type LetterResult = { letter: string; notes: string[] };
 
@@ -14,6 +11,7 @@ export type LetterResult = { letter: string; notes: string[] };
 // ---------------------------------------------------------------------------------------------
 
 export type ExitLetterInput = {
+  state: string;
   tenantName: string;
   landlordName: string;
   propertyAddress: string;
@@ -57,7 +55,7 @@ Dear ${input.landlordName},
       : `the notice to end the tenancy is ${notice}`
   }. You have not given me a valid notice to quit that meets this.
 
-4. ${EVICTION_PROCESS_NOTE} Until that process is completed I remain in lawful possession of the property and I will keep paying rent as we agreed.
+4. ${evictionNoteFor(input.state)} Until that process is completed I remain in lawful possession of the property and I will keep paying rent as we agreed.
 
 5. I ask you to withdraw your demand in writing within 7 days. Please do not change the locks, remove my belongings, cut off water or electricity, or threaten or harass me or my family. Any such action would be unlawful, and I will take advice on my remedies.
 
@@ -89,6 +87,7 @@ ${DISCLAIMER}`;
 export type MarriageType = "statutory" | "customary" | "unsure";
 
 export type WidowLetterInput = {
+  state: string;
   widowName: string;
   deceasedName: string;
   propertyDescription: string;
@@ -110,9 +109,13 @@ export function buildWidowLetter(input: WidowLetterInput): LetterResult {
       "The Supreme Court has also held, in Ukeje v Ukeje (2014), that a customary rule which stops a female child from inheriting from her father is void because it breaches the Constitution.",
     );
   }
-  if (input.marriageType === "statutory") {
+  if (input.marriageType === "statutory" && input.state === "Lagos") {
     legalLines.push(
       "Our marriage was celebrated under the Marriage Act. Where such a husband dies in Lagos without a will, the Administration of Estates Law of Lagos State, 2015 governs how his estate is shared, not customary rules.",
+    );
+  } else if (input.marriageType === "statutory") {
+    legalLines.push(
+      `Our marriage was celebrated under the Marriage Act. I am taking legal advice on how the law of ${stateLabel(input.state)} applies to the estate of a husband married under that Act, and I ask that nothing is done until that is settled.`,
     );
   } else if (input.marriageType === "customary") {
     legalLines.push(

@@ -1,14 +1,11 @@
 import { formatNgn } from "./intake";
-import {
-  DISCLAIMER,
-  LAW_NOTE,
-  TENANCY_TYPE_LABEL,
-  checkAdvanceRent,
-  defaultNotice,
-  type TenancyType,
-} from "./lagos-tenancy";
+import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
+import { isNigerianState, stateLabel } from "./jurisdiction";
+import { checkAdvanceRentFor, lawNoteFor, noticePeriodFor, ruleFor } from "./tenancy-rules";
 
 export type TenancyTerms = {
+  /** Nigerian state of the property, or "FCT". Decides which legal rules CourtAgent can apply. */
+  state: string;
   landlordName: string;
   tenantName: string;
   landlordWallet: string;
@@ -34,6 +31,7 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
     const value = terms[field];
     if (value === undefined || value === null || value === "") issues.push({ field, message: `${label} is required.` });
   };
+  if (!isNigerianState(terms.state)) issues.push({ field: "state", message: "Choose the state the property is in." });
   need("landlordName", "Landlord name");
   need("tenantName", "Tenant name");
   need("propertyAddress", "Property address");
@@ -55,10 +53,16 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
     issues.push({ field: "tenantWallet", message: "Landlord and tenant need two different wallet addresses." });
   }
   if (terms.advanceMonths !== undefined) {
-    const check = checkAdvanceRent(terms.advanceMonths);
+    const check = checkAdvanceRentFor(terms.state ?? "", terms.advanceMonths);
     if (!check.ok) issues.push({ field: "advanceMonths", message: check.message });
   } else {
     issues.push({ field: "advanceMonths", message: "Advance rent months is required." });
+  }
+  if (terms.state && terms.tenancyType && !ruleFor(terms.state) && !terms.agreedNotice?.trim()) {
+    issues.push({
+      field: "agreedNotice",
+      message: `Write the notice period you and the landlord agree (for example 3 months). CourtAgent has default notice periods only for states it has checked, and ${stateLabel(terms.state)} is not one of them yet.`,
+    });
   }
   return issues;
 }
@@ -70,8 +74,13 @@ export function endDate(startDate: string, durationMonths: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function noticeText(terms: Pick<TenancyTerms, "tenancyType" | "agreedNotice">): string {
-  return terms.agreedNotice?.trim() || defaultNotice(terms.tenancyType);
+export function noticeText(terms: Pick<TenancyTerms, "state" | "tenancyType" | "agreedNotice">): string {
+  return (
+    noticePeriodFor(terms.state, terms.tenancyType, terms.agreedNotice) ??
+    (terms.tenancyType === "fixed_term"
+      ? "no notice is needed once the fixed term has expired"
+      : `the notice period required by the law of ${stateLabel(terms.state)}`)
+  );
 }
 
 /** Deterministic draft. The wording is fixed on purpose: the AI explains it but never rewrites legal terms. */
@@ -84,7 +93,9 @@ export function buildAgreement(terms: TenancyTerms): string {
   const noticeClause =
     terms.tenancyType === "fixed_term" && !terms.agreedNotice
       ? "As this is a fixed-term tenancy, no notice to quit is needed once the fixed term has expired."
-      : `Either party who wishes to end this tenancy before the end date must give the other written notice of at least ${notice}. This is the notice period for a ${TENANCY_TYPE_LABEL[terms.tenancyType]} unless both parties have written a different period here.`;
+      : terms.agreedNotice?.trim()
+        ? `Either party who wishes to end this tenancy before the end date must give the other written notice of at least ${notice}. This is the period both parties have agreed.`
+        : `Either party who wishes to end this tenancy before the end date must give the other written notice of at least ${notice}. This is the notice period for a ${TENANCY_TYPE_LABEL[terms.tenancyType]} unless both parties have written a different period here.`;
 
   return `TENANCY AGREEMENT (DRAFT)
 
@@ -95,7 +106,7 @@ Landlord: ${terms.landlordName} (wallet ${terms.landlordWallet})
 Tenant: ${terms.tenantName} (wallet ${terms.tenantWallet})
 
 2. PREMISES
-The landlord lets and the tenant takes: ${rooms} at ${terms.propertyAddress}, Lagos State, Nigeria ("the Premises").
+The landlord lets and the tenant takes: ${rooms} at ${terms.propertyAddress}, ${stateLabel(terms.state)}, Nigeria ("the Premises").
 
 3. TERM
 The tenancy is a ${TENANCY_TYPE_LABEL[terms.tenancyType]} starting on ${terms.startDate} for ${terms.durationMonths} months, ending on ${end}.
@@ -110,7 +121,7 @@ The landlord will give the tenant a signed receipt for every payment, showing th
 ${noticeClause}
 
 6. RECOVERY OF POSSESSION
-The landlord will not remove the tenant, lock the tenant out or take the tenant's belongings by force. If the landlord wants possession of the Premises, the landlord will follow the notice and court process required by the Lagos State Tenancy Law.
+The landlord will not remove the tenant, lock the tenant out or take the tenant's belongings by force. If the landlord wants possession of the Premises, the landlord will follow the notice and court process required by the law of ${stateLabel(terms.state)}.
 
 7. CAUTION DEPOSIT
 ${terms.cautionNgn > 0 ? "The caution deposit is refundable at the end of the tenancy, less the agreed cost of any damage beyond fair wear and tear." : "No caution deposit is payable."}
@@ -123,5 +134,5 @@ The keccak256 hash of this exact text is recorded on the Ethereum Sepolia test n
 
 10. IMPORTANT
 ${DISCLAIMER}
-${LAW_NOTE}`;
+${lawNoteFor(terms.state)}`;
 }

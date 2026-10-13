@@ -133,3 +133,4 @@ export class DemoRegistry implements RegistryBackend {
 /** Fixed, clearly fake addresses used for the sides of a Demo Mode rental. */
 export const DEMO_TENANT: Address = "0x0000000000000000000000000000000000007e01";
 export const DEMO_LANDLORD: Address = "0x000000000000000000000000000000000001a2d1";
+export const DEMO_OWNER: Address = "0x000000000000000000000000000000000000b0b1";
