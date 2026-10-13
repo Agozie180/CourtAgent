@@ -1,0 +1,84 @@
+/** Minimal ABI for contracts/DocumentRegistry.sol. test/DocumentRegistry.ts checks it matches the compiled contract. */
+export const documentRegistryAbi = [
+  {
+    type: "function",
+    name: "register",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "docHash", type: "bytes32" },
+      { name: "kind", type: "string" },
+      { name: "parties", type: "address[]" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "sign",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "docHash", type: "bytes32" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "getRecord",
+    stateMutability: "view",
+    inputs: [{ name: "docHash", type: "bytes32" }],
+    outputs: [
+      { name: "creator", type: "address" },
+      { name: "createdAt", type: "uint64" },
+      { name: "fullySignedAt", type: "uint64" },
+      { name: "kind", type: "string" },
+      { name: "parties", type: "address[]" },
+      { name: "signed", type: "bool[]" },
+    ],
+  },
+  {
+    type: "function",
+    name: "isRegistered",
+    stateMutability: "view",
+    inputs: [{ name: "docHash", type: "bytes32" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "isFullySigned",
+    stateMutability: "view",
+    inputs: [{ name: "docHash", type: "bytes32" }],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "MAX_PARTIES",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "event",
+    name: "DocumentRegistered",
+    inputs: [
+      { name: "docHash", type: "bytes32", indexed: true },
+      { name: "creator", type: "address", indexed: true },
+      { name: "kind", type: "string", indexed: false },
+      { name: "parties", type: "address[]", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "DocumentSigned",
+    inputs: [
+      { name: "docHash", type: "bytes32", indexed: true },
+      { name: "signer", type: "address", indexed: true },
+      { name: "signedCount", type: "uint8", indexed: false },
+      { name: "requiredCount", type: "uint8", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "DocumentFullySigned",
+    inputs: [
+      { name: "docHash", type: "bytes32", indexed: true },
+      { name: "at", type: "uint64", indexed: false },
+    ],
+  },
+] as const;
