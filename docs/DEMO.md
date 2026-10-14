@@ -1,12 +1,28 @@
 # 2-minute demo script
 
-Start with `npm run dev`. Stay in Demo Mode.
+Start with `npm run dev` (or the hosted URL). Stay in Demo Mode. Lead with the unfakeable moment, then show the guardrails.
 
-1. **0:00 Hook (10s).** "AI explains. Rules decide. A hash makes it tamper-proof."
-2. **0:10 Intake (25s).** Open *Rent*. Answer the chat: Lagos, budget, 2 bedrooms, parlour, Lekki, landlord, yearly.
-3. **0:35 Scam check (20s).** Paste a scam message ("I am abroad, keys by courier, pay today in gift card"). Show **HIGH RISK** and the reasons.
-4. **0:55 Agreement (15s).** Show the generated agreement and the plain-language points. Say: the AI never touched the legal text.
-5. **1:10 Record and sign (25s).** "Acting as" Tenant: record and sign. Switch to Landlord: sign. Status shows **FULLY SIGNED**.
-6. **1:35 Guardrail (15s).** Open the verify link. It matches. Change `1,200,000` to `1,300,000` and it shows **NOT RECORDED**.
-7. **1:50 Pressure + widow (10s).** Show the exit letter, then the *Widow* tab letter.
-8. **2:00 Close.** "All 36 states, Lagos verified, honest about the rest."
+1. **0:00 The point (15s).** On the home page press **Change the rent to 1,300,000**. The stamp flips from green
+   RECORDED to red NOT RECORDED and the fingerprint changes. Say: "AI explains. Rules decide. A fingerprint makes a changed word detectable."
+2. **0:15 Guardrail 1, the scam check (20s).** Press **Landlord abroad, keys by courier**. Show **HIGH RISK** and the reasons. Say: fixed rules rated this, no AI, nothing left the browser.
+3. **0:35 Intake (20s).** Open *Rent a home*. Paste the answers from the README one at a time (Lagos, 1.2m a year, ...).
+4. **0:55 Agreement (15s).** Show the agreement and the plain-language points. Say: the AI never touched the legal text.
+5. **1:10 Record and sign (20s).** Acting as Tenant: record and sign. Switch to Landlord: sign. Status shows FULLY SIGNED.
+6. **1:30 Guardrail 2, a stranger (10s).** Switch Acting as to *Someone else* and press **Try to sign anyway**. The registry refuses.
+7. **1:40 Guardrail 3, the verify link (10s).** Open the verify link: it matches and the wallets match the text. Edit one number: NOT RECORDED.
+8. **1:50 Pressure and widow (10s).** Show the exit letter and the *Protect a home* letter.
+9. **2:00 Close.** "Lagos verified, honest about the rest. Held-out scam test: 3 of 10, and we say so."
+
+Record several takes. Narrate step 1 slowly: it is the moment a judge cannot fake.
+
+## Submission checklist
+
+- [ ] `npm run deploy:sepolia`, address in `NEXT_PUBLIC_REGISTRY_ADDRESS`, `deployments/sepolia.json` committed, `npm run verify:live` passes, Etherscan link in README
+- [ ] Hosted URL in README and in the DoraHacks form
+- [ ] Demo video link in README
+- [ ] Try real Anthropic and OpenAI keys once; confirm the OpenAI model name
+- [ ] Try Sepolia mode with MetaMask once
+- [ ] Lawyer reviews the law notes, or keep the "not reviewed" wording
+- [ ] Remove or gitignore `Handoff.md`; confirm no secrets (`git grep -nI "PRIVATE_KEY"`)
+- [ ] Repo description names the event; commits authored by Agozie180 only
+- [ ] Submit on DoraHacks before 2026/11/01 02:01 Lagos time, with a buffer

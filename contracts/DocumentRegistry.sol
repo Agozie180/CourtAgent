@@ -25,6 +25,7 @@ contract DocumentRegistry {
     error EmptyHash();
     error InvalidKind();
     error InvalidParties();
+    error CreatorNotAParty(address caller);
     error AlreadyRegistered(bytes32 docHash);
     error NotRegistered(bytes32 docHash);
     error NotAParty(address caller);
@@ -38,6 +39,8 @@ contract DocumentRegistry {
     /// @param docHash keccak256 of the final document text.
     /// @param kind Short label such as "TENANCY_AGREEMENT" or "PROPERTY_RECORD".
     /// @param parties Addresses that must each call sign(). Between 1 and MAX_PARTIES, no duplicates.
+    /// @dev    The caller must be one of the parties. This stops a stranger from registering someone else's
+    ///         document hash with a party list of their own choosing (see AUDIT.md, finding F-1).
     function register(bytes32 docHash, string calldata kind, address[] calldata parties) external {
         if (docHash == bytes32(0)) revert EmptyHash();
         uint256 kindLength = bytes(kind).length;
@@ -48,14 +51,17 @@ contract DocumentRegistry {
         Record storage record = records[docHash];
         if (record.createdAt != 0) revert AlreadyRegistered(docHash);
 
+        bool callerIsParty = false;
         for (uint256 i = 0; i < count; i++) {
             address party = parties[i];
             if (party == address(0)) revert InvalidParties();
             for (uint256 j = 0; j < i; j++) {
                 if (parties[j] == party) revert InvalidParties();
             }
+            if (party == msg.sender) callerIsParty = true;
             record.parties.push(party);
         }
+        if (!callerIsParty) revert CreatorNotAParty(msg.sender);
 
         record.creator = msg.sender;
         record.createdAt = uint64(block.timestamp);

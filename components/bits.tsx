@@ -97,6 +97,7 @@ export function Notice({ tone = "info", children }: { tone?: "info" | "warn" | "
 export function errorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   if (/user rejected|denied/i.test(text)) return "You cancelled the request in your wallet.";
+  if (text.includes("CreatorNotAParty")) return "Only one of the parties can record this document. Switch to the tenant or landlord wallet and try again.";
   if (text.includes("AlreadyRegistered")) return "This exact document is already recorded.";
   if (text.includes("NotAParty")) return "The connected account is not one of the parties on this document.";
   if (text.includes("AlreadySigned")) return "This account has already signed.";

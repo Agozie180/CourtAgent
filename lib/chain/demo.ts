@@ -62,6 +62,7 @@ export function applyRegister(
   });
   if (new Set(normalized).size !== normalized.length) throw new DemoError("InvalidParties");
   if (state.records[docHash]) throw new DemoError("AlreadyRegistered");
+  if (!normalized.includes(getAddress(creator))) throw new DemoError("CreatorNotAParty");
 
   state.counter += 1;
   state.records[docHash] = {
@@ -134,3 +135,5 @@ export class DemoRegistry implements RegistryBackend {
 export const DEMO_TENANT: Address = "0x0000000000000000000000000000000000007e01";
 export const DEMO_LANDLORD: Address = "0x000000000000000000000000000000000001a2d1";
 export const DEMO_OWNER: Address = "0x000000000000000000000000000000000000b0b1";
+/** Not a party to any demo document. Used to show that the registry refuses a stranger. */
+export const DEMO_STRANGER: Address = "0x0000000000000000000000000000000000000abc";

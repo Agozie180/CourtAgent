@@ -2,18 +2,19 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Address } from "viem";
-import { DEMO_LANDLORD, DEMO_OWNER, DEMO_TENANT, DemoRegistry } from "@/lib/chain/demo";
+import { DEMO_LANDLORD, DEMO_OWNER, DEMO_STRANGER, DEMO_TENANT, DemoRegistry } from "@/lib/chain/demo";
 import { getRegistryAddress } from "@/lib/chain/config";
 import { OnChainRegistry, connectInjectedWallet } from "@/lib/chain/onchain";
 import type { RegistryBackend } from "@/lib/chain/types";
 
 export type Mode = "demo" | "wallet";
-export type DemoActor = "tenant" | "landlord" | "owner";
+export type DemoActor = "tenant" | "landlord" | "owner" | "stranger";
 
 export const DEMO_ACTORS: Record<DemoActor, { label: string; address: Address }> = {
   tenant: { label: "Tenant", address: DEMO_TENANT },
   landlord: { label: "Landlord", address: DEMO_LANDLORD },
   owner: { label: "Property owner or widow", address: DEMO_OWNER },
+  stranger: { label: "Someone else (not a party)", address: DEMO_STRANGER },
 };
 
 type Session = {

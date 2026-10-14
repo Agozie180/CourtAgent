@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Hex } from "viem";
 import { hashDocument, isDocHash, shortHash } from "@/lib/hash/document";
+import { comparePartiesToText } from "@/lib/hash/parties";
 import { readShareFromHash } from "@/lib/share";
 import { loadDocuments, type SavedDocument } from "@/lib/storage";
 import type { RegistryRecord, TxResult } from "@/lib/chain/types";
@@ -40,6 +41,11 @@ export function VerifyView() {
     if (text.trim()) return hashDocument(text);
     return isDocHash(typedHash) ? (typedHash.trim() as Hex) : null;
   }, [text, typedHash]);
+
+  const partyCheck = useMemo(
+    () => (record && text.trim() ? comparePartiesToText(text, record.parties) : null),
+    [record, text],
+  );
 
   const lookup = useCallback(async () => {
     if (!hash) {
@@ -122,11 +128,19 @@ export function VerifyView() {
 
       {hash && looked && record ? (
         <>
-          <Notice tone="ok">
-            {text.trim()
-              ? "This exact text matches a recorded document."
-              : "This fingerprint is recorded. Paste the text to confirm it matches."}
-          </Notice>
+          {partyCheck?.status === "mismatch" ? (
+            <Notice tone="error">
+              Warning: this exact text was recorded, but the wallets recorded for it are not the wallets written in the
+              text. Someone other than the named parties may have recorded it. Do not rely on this record.
+            </Notice>
+          ) : (
+            <Notice tone="ok">
+              {text.trim()
+                ? "This exact text matches a recorded document."
+                : "This fingerprint is recorded. Paste the text to confirm it matches."}
+              {partyCheck?.status === "match" ? " The recorded wallets are exactly the wallets named in the text." : ""}
+            </Notice>
+          )}
           <RecordStatus record={record} account={session.account} busy={busy} onSign={() => void sign()} />
           {tx ? <TxLine hash={tx.hash} source={tx.source} /> : null}
         </>

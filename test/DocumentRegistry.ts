@@ -127,4 +127,52 @@ describe("DocumentRegistry", () => {
     await expectRevert(registry.write.sign([DOC_HASH], { account: tenant.account }), "NotRegistered");
     expect(await registry.read.isRegistered([DOC_HASH])).to.equal(false);
   });
+
+  it("F-1: a stranger cannot register a hash on behalf of other parties", async () => {
+    const { registry, tenant, landlord, stranger } = await loadFixture(deployFixture);
+    // Registering with a party list that does not include the caller is rejected, so nobody can squat on a
+    // document hash with a party list of their own choosing.
+    await expectRevert(
+      registry.write.register([DOC_HASH, "TENANCY_AGREEMENT", [tenant.account.address, landlord.account.address]], {
+        account: stranger.account,
+      }),
+      "CreatorNotAParty",
+    );
+    expect(await registry.read.isRegistered([DOC_HASH])).to.equal(false);
+    // The real tenant can still register it afterwards.
+    await registry.write.register([DOC_HASH, "TENANCY_AGREEMENT", [tenant.account.address, landlord.account.address]], {
+      account: tenant.account,
+    });
+    expect(await registry.read.isRegistered([DOC_HASH])).to.equal(true);
+  });
+
+  it("the TypeScript ABI used by the app matches the compiled contract", async () => {
+    const { documentRegistryAbi } = await import("../lib/chain/abi");
+    const artifact = await hre.artifacts.readArtifact("DocumentRegistry");
+    type Item = { type: string; name?: string; inputs?: { type: string }[] };
+    const signature = (item: Item) => `${item.type}:${item.name ?? ""}(${(item.inputs ?? []).map((i) => i.type).join(",")})`;
+    const wanted = (artifact.abi as Item[]).filter((i) => i.type !== "constructor").map(signature).sort();
+    const have = (documentRegistryAbi as unknown as Item[]).map(signature).sort();
+    expect(have).to.deep.equal(wanted);
+  });
+
+  it("gas stays small (measured, printed for the README)", async () => {
+    const { registry, publicClient, tenant, landlord } = await loadFixture(deployFixture);
+    const used = async (hash: `0x${string}`) => (await publicClient.waitForTransactionReceipt({ hash })).gasUsed;
+    const registerTwo = await used(
+      await registry.write.register([DOC_HASH, "TENANCY_AGREEMENT", [tenant.account.address, landlord.account.address]], {
+        account: tenant.account,
+      }),
+    );
+    const signFirst = await used(await registry.write.sign([DOC_HASH], { account: tenant.account }));
+    const signLast = await used(await registry.write.sign([DOC_HASH], { account: landlord.account }));
+    const registerOne = await used(
+      await registry.write.register([OTHER_HASH, "PROPERTY_RECORD", [tenant.account.address]], { account: tenant.account }),
+    );
+    console.log(
+      `      GAS register(2 parties)=${registerTwo} sign(first)=${signFirst} sign(last, fully signed)=${signLast} register(1 party)=${registerOne}`,
+    );
+    expect(registerTwo < 400_000n).to.equal(true);
+    expect(signLast < 120_000n).to.equal(true);
+  });
 });

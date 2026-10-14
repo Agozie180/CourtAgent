@@ -53,8 +53,44 @@ const TEXT_PATTERNS: { id: string; severity: Severity; pattern: RegExp; message:
   {
     id: "TEXT_ABROAD",
     severity: "high",
-    pattern: /(i am|i'm|currently) (abroad|outside (the )?country|travell?ing)|send (you )?the keys? (by|through) (courier|dhl)|keys? will be (sent|couriered)/i,
+    pattern: /(i am|i'm|currently) (abroad|outside (the )?country)|send (you )?the keys? (by|through) (courier|dhl)|keys? will be (sent|couriered)/i,
     message: "The landlord says they are abroad and will send keys later. This is a common rental scam pattern.",
+  },
+  {
+    id: "TEXT_OVERSEAS_OWNER",
+    severity: "medium",
+    pattern: /(i am|i'm|i live|i work|currently|presently|based)( \w+){0,3} (in|at|on) (the )?(uk|u\.k\.|usa|u\.s\.a?\.?|united kingdom|united states|canada|dubai|london|america|europe|germany|ireland)\b|military posting|on a (mission|deployment|posting)|offshore|oil rig|missionary/i,
+    message: "The sender says they are overseas or away on duty. Owners abroad can be honest, but this is how many rental scams start. Ask for the owner's authority letter and meet their agent at the property.",
+  },
+  {
+    id: "TEXT_CANNOT_MEET",
+    severity: "medium",
+    pattern: /(can(not|'t)|unable to|won'?t be able to) (meet|show|be there|come)/i,
+    message: "The sender cannot meet you or show you the property. Do not pay until you have seen it and met the owner or a verified agent.",
+  },
+  {
+    id: "TEXT_NO_INSPECTION",
+    severity: "high",
+    pattern: /(no need|don'?t need|do not need) to (come|see|inspect|view|visit)|without (inspecting|viewing|seeing)/i,
+    message: "The sender tells you not to inspect the property. Never pay for a place you have not seen.",
+  },
+  {
+    id: "TEXT_VIEWING_FEE",
+    severity: "medium",
+    pattern: /(inspection|viewing|booking|reservation) fee|(pay|send)\b.{0,40}before (you )?(see|view|inspect|visit)/i,
+    message: "You are asked to pay a fee just to see or hold the property. This is a common scam pattern. Some agents do charge one, so pay it only to someone you have verified.",
+  },
+  {
+    id: "TEXT_PAY_TO_SECURE",
+    severity: "medium",
+    pattern: /(pay|send|deposit|transfer)\b.{0,30}(to )?(secure|hold|reserve|book) (the |this |your )?(flat|apartment|house|place|room|unit|property)/i,
+    message: "You are asked to pay to hold or secure the property before an agreement exists. Get the written agreement first.",
+  },
+  {
+    id: "TEXT_PERSONAL_ACCOUNT",
+    severity: "medium",
+    pattern: /personal account|(cousin|friend|brother|sister|uncle|aunt|nephew|niece)['\u2019]?s? (bank )?account/i,
+    message: "The text points you to a personal account, or to a relative's or friend's account. Pay only into an account in the name of the landlord or the company named on the agreement.",
   },
   {
     id: "TEXT_NO_AGREEMENT",

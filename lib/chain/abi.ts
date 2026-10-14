@@ -48,6 +48,13 @@ export const documentRegistryAbi = [
   },
   {
     type: "function",
+    name: "MAX_KIND_LENGTH",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
     name: "MAX_PARTIES",
     stateMutability: "view",
     inputs: [],
@@ -81,4 +88,12 @@ export const documentRegistryAbi = [
       { name: "at", type: "uint64", indexed: false },
     ],
   },
+  { type: "error", name: "EmptyHash", inputs: [] },
+  { type: "error", name: "InvalidKind", inputs: [] },
+  { type: "error", name: "InvalidParties", inputs: [] },
+  { type: "error", name: "CreatorNotAParty", inputs: [{ name: "caller", type: "address" }] },
+  { type: "error", name: "AlreadyRegistered", inputs: [{ name: "docHash", type: "bytes32" }] },
+  { type: "error", name: "NotRegistered", inputs: [{ name: "docHash", type: "bytes32" }] },
+  { type: "error", name: "NotAParty", inputs: [{ name: "caller", type: "address" }] },
+  { type: "error", name: "AlreadySigned", inputs: [{ name: "caller", type: "address" }] },
 ] as const;

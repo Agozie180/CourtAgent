@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { getAddress } from "viem";
 import { shortHash } from "@/lib/hash/document";
 import type { RegistryRecord } from "@/lib/chain/types";
+import { Notice } from "./bits";
 
 export function formatTime(seconds: number): string {
   return new Date(seconds * 1000).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
@@ -45,6 +46,17 @@ export function RecordStatus({
         <button type="button" className="button yellow" disabled={busy} onClick={onSign}>
           {busy ? "Signing…" : "Sign this document"}
         </button>
+      ) : null}
+      {onSign && account && myIndex < 0 ? (
+        <>
+          <Notice tone="warn">
+            This account is not a party to the document, so the registry will refuse its signature. Press the button to
+            see the refusal.
+          </Notice>
+          <button type="button" className="button ghost small" disabled={busy} onClick={onSign}>
+            {busy ? "Trying…" : "Try to sign anyway"}
+          </button>
+        </>
       ) : null}
     </div>
   );

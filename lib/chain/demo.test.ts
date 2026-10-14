@@ -63,6 +63,16 @@ describe("DemoRegistry (mirrors the contract rules)", () => {
     await expect(registry.sign(other)).rejects.toThrow("NotRegistered");
   });
 
+  it("F-1: only a listed party can register a document (same rule as the contract)", async () => {
+    const storage = memoryStorage();
+    const actor = { current: "0x0000000000000000000000000000000000000abc" as Address | null };
+    const registry = registryFor(storage, actor);
+    await expect(registry.register(hash, "TENANCY_AGREEMENT", [DEMO_TENANT, DEMO_LANDLORD])).rejects.toThrow(
+      "CreatorNotAParty",
+    );
+    expect(await registry.getRecord(hash)).toBeNull();
+  });
+
   it("returns null for an unknown hash and needs an actor to write", async () => {
     const storage = memoryStorage();
     const actor = { current: null as Address | null };

@@ -190,3 +190,20 @@ mark { background: linear-gradient(transparent 12%, var(--yellow) 12%, var(--yel
   html { scroll-behavior: auto; }
   .stamp { animation: none; }
 }
+
+/* judge-first demos on the home page */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.tamper-sheet { position: relative; padding: 0; }
+.tamper-label { padding: 12px 20px 0; font-size: 0.85rem; color: var(--muted); }
+.tamper-sheet textarea { display: block; width: 100%; border: 0; border-radius: 0; background: transparent; font-family: var(--font-doc); font-size: 0.95rem; line-height: 1.6; padding: 8px 20px 24px; min-height: 270px; resize: none; }
+.tamper-sheet textarea:focus-visible { outline-offset: -3px; }
+.tamper-sheet .stamp { right: 14px; bottom: 14px; pointer-events: none; }
+.hash-compare { margin: 12px 0 4px; }
+.hash-compare p { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; margin: 0 0 6px; align-items: start; font-size: 0.82rem; }
+.hash-compare span { color: var(--muted); }
+.hash-compare code { font-size: 0.78rem; line-height: 1.45; }
+.hash-diff .diff { background: var(--red-soft); color: var(--red); font-weight: 700; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.try-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; margin-top: 24px; align-items: start; }
+.proof-strip { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 24px 0 0; padding: 12px 0 0; border-top: 1px solid var(--rule); font-size: 0.9rem; color: var(--ink-soft); }
+.proof-strip strong { color: var(--ink); }

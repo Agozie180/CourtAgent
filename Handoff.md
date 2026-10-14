@@ -1,6 +1,6 @@
 # Handoff: CourtAgent (BLI Legal Tech Hackathon 2)
 
-Last updated: 2026-10-13 evening (Lagos time). Status: BUILD IN PROGRESS. The logic, contract, AI layer and API are done and tested. The pages (UI) are NOT built yet.
+Last updated: 2026-10-14 (Lagos time). Status: BUILD COMPLETE and polished against the playbook (75 unit/UI tests, 11 contract tests, build passes). Remaining work needs the owner's keys, wallet and accounts (see STILL TO DO).
 Repo: https://github.com/Agozie180/CourtAgent (branch main). Local working copy: /home/claude/work/CourtAgent in the build session.
 
 ## Hackathon
@@ -41,6 +41,16 @@ STILL TO DO (the user does these; they need his keys or wallet):
 4. Host the app (for example Vercel), put the URL in README. Record the 2-minute demo video (docs/DEMO.md), submit on DoraHacks before 2026/11/01 02:01 (Lagos time).
 5. Before submitting: get a lawyer to review the law notes; remove or gitignore Handoff.md; check there are no secrets.
 6. Optional: research more states (FCT, Enugu, Rivers, Ogun, Oyo) and add verified entries to lib/domain/tenancy-rules.ts with tests.
+
+## Session 2026-10-14: playbook pass (what changed)
+- Contract: `register()` now requires the caller to be a listed party (CreatorNotAParty). AUDIT.md F-1. ABI, Demo Mode and tests updated. REDEPLOY needed (nothing was deployed yet).
+- Verify page cross-checks wallets written in the text against registry parties (F-2, lib/hash/parties.ts).
+- Home page: live tamper test (RECORDED flips to NOT RECORDED) and live scam check (components/home-demos.tsx). "Someone else (not a party)" actor and "Try to sign anyway" show the registry refusing a stranger.
+- Scam rules extended; labelled corpus + HELD-OUT set in lib/domain/corpus.ts, pinned by corpus.test.ts. Honest result: held-out 3/10 scams caught, 2/8 honest flagged. Do NOT tune rules on held-out items; add new ones.
+- `npm run measure` prints the numbers quoted in README. README rewritten as judge answer sheet; added docs/ARCHITECTURE.md (non-goals), AUDIT.md, SECURITY.md, .github/workflows/ci.yml, updated docs/DEMO.md with submission checklist.
+- If you change a rule, run `npm run measure`, then update corpus.test.ts, README "Measured", AUDIT.md together.
+- Could not run a real browser here (no Chromium download); UI was checked with jsdom tests and a production build smoke test only. Eyeball the home page at desktop and 390px.
+- Open before submit: Sepolia deploy, real-key test, MetaMask test, hosting URL, video, lawyer review, remove/gitignore Handoff.md.
 
 ## Design plan (decided; build to this)
 - Feel: a trustworthy case file, not a crypto dashboard. Left-aligned, single column, borders and rules that carry meaning, no identical card grid.

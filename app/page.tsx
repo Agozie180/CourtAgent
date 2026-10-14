@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { TamperDemo, ScamDemo } from "@/components/home-demos";
+import { NIGERIAN_STATES } from "@/lib/domain/jurisdiction";
+import { STATE_RULES } from "@/lib/domain/tenancy-rules";
 
 export default function Home() {
   return (
@@ -8,9 +11,8 @@ export default function Home() {
           <div>
             <h1>Check the landlord. Sign the agreement. Keep the proof.</h1>
             <p className="lead">
-              CourtAgent helps Nigerian tenants spot fake listings, draft a clear tenancy agreement, and record its
-              fingerprint on Ethereum Sepolia so nobody can quietly change it later. A second tool helps a widow keep a
-              dated record of the family home.
+              AI explains and flags. Fixed rules decide. A fingerprint on Ethereum proves nothing was changed. Built for
+              Nigerian tenants and for widows who may be pushed out of the family home.
             </p>
             <div className="button-row">
               <Link className="button yellow" href="/rent">
@@ -20,29 +22,41 @@ export default function Home() {
                 Record a family property
               </Link>
             </div>
+            <p className="proof-strip">
+              <span>
+                <strong>No wallet or key needed</strong> to try it
+              </span>
+              <span>
+                <strong>{NIGERIAN_STATES.length} places</strong> covered, <strong>{Object.keys(STATE_RULES).length} legally verified</strong> (Lagos)
+              </span>
+              <span>
+                <Link href="https://github.com/Agozie180/CourtAgent">Open source, MIT</Link>
+              </span>
+            </p>
           </div>
-          <div className="hero-sheet" aria-hidden="true">
-            <div className="sheet">
-              <pre className="sheet-text">{`TENANCY AGREEMENT (DRAFT)
+          <div id="try-tamper">
+            <TamperDemo />
+          </div>
+        </div>
+      </section>
 
-1. PARTIES
-Landlord: Chief A. Bello
-Tenant: Ada Okeke
-
-4. RENT AND PAYMENT
-Yearly rent: NGN 1,200,000
-Rent paid in advance: `}<mark>12 months</mark>{`
-
-5. NOTICE
-Written notice of at least `}<mark>6 months</mark>{`
-
-6. RECOVERY OF POSSESSION
-The landlord will not remove the tenant
-or lock the tenant out by force.`}</pre>
-            </div>
-            <div className="stamp">
-              RECORDED
-              <small>Fingerprint 0x9f3a…c41e on Sepolia</small>
+      <section className="section" id="try">
+        <div className="wrap">
+          <h2>Try the other half: is this landlord message a scam?</h2>
+          <p>
+            Pick an example or paste a real message. The rating comes from fixed rules you can read in the code, and each
+            warning says why.
+          </p>
+          <div className="try-grid">
+            <ScamDemo />
+            <div>
+              <h3>Three promises, each one tested</h3>
+              <ul className="explain-list">
+                <li>The AI never writes or edits the legal terms. The agreement is a fixed template.</li>
+                <li>The AI can add a warning but can never make a check High risk. Only the fixed rules can.</li>
+                <li>One changed word gives a different fingerprint, so a record cannot be quietly rewritten.</li>
+              </ul>
+              <p className="hint">The proof is in the test files, listed in the README.</p>
             </div>
           </div>
         </div>
