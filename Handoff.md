@@ -32,20 +32,15 @@ DONE and tested (51 unit tests via `npm test`, 8 contract tests via `npm run con
 - lib/storage.ts (saved documents in the browser)
 - Config: package.json, tsconfig.json, eslint.config.js, vitest.config.ts, next.config.ts, hardhat.config.ts, .env.example, .gitignore, .nvmrc (20), MIT LICENSE
 
-STARTED but not finished (files exist, compile, not committed before this handoff):
-- components/session-provider.tsx (Demo vs Sepolia mode, "acting as" actor, wallet connect, registry backend)
-- components/site-header.tsx (nav and mode toggle)
-- components/bits.tsx (copy, download, document sheet, hash line, tx line, notices, errorMessage)
+ALSO DONE (UI, committed and pushed): app/layout.tsx, app/globals.css, landing, /rent (5 steps), /widow, /verify, session-provider, site-header, bits, record-status; scripts/verify-live.ts; lib/ai/thesis.test.ts (56 unit tests pass); README.md; docs/DEMO.md. Checked in headless Chromium in Demo Mode at desktop and 390px: rental flow, widow flow, verify mismatch, no console errors.
 
-STILL TO DO, in this order:
-1. app/layout.tsx (import fonts `@fontsource-variable/bricolage-grotesque` and `@fontsource-variable/source-serif-4`; wrap in SessionProvider; header and footer with the "not legal advice" notice), app/globals.css (design tokens below)
-2. Pages: app/page.tsx (landing), app/rent/page.tsx + components/rent-flow.tsx (steps: Details chat -> Check -> Agreement -> Record -> After payment; needs a state selector and a "notice period you agreed" input shown for unverified states), app/widow/page.tsx + components/widow-flow.tsx, app/verify/page.tsx + components/verify-view.tsx (reads `#d=` text from the URL fragment, recomputes the hash, reads the record, lets a listed party sign)
-3. /api/check expects `state` in the body; the UI must send it. API route files for explain use validateTerms, which requires `state`.
-4. scripts/verify-live.ts (package.json's `verify:live` points at it but it does not exist yet): checks the contract exists on Sepolia
-5. README.md (clone, install, env, run in about 5 commands; how to deploy; Demo Mode; what is real and what is limited; how to add a state to STATE_RULES), docs/DEMO.md (2-minute demo script)
-6. `npm run build`, `npm run lint`, `npm run check`; fix anything that fails. Look at the pages in a browser if possible.
-7. Deploy contract to Sepolia (user needs a throwaway wallet with Sepolia test ETH in .env as DEPLOYER_PRIVATE_KEY), put the address in .env.local as NEXT_PUBLIC_REGISTRY_ADDRESS and in the README, record a 2-minute demo video, submit on DoraHacks.
-8. Optional: research more states (FCT, Enugu, Rivers, Ogun, Oyo) and add verified entries to lib/domain/tenancy-rules.ts with tests.
+STILL TO DO (the user does these; they need his keys or wallet):
+1. Deploy to Sepolia: throwaway wallet with test ETH in .env.local as DEPLOYER_PRIVATE_KEY, run `npm run deploy:sepolia`, put the address in NEXT_PUBLIC_REGISTRY_ADDRESS, commit deployments/sepolia.json, run `npm run verify:live`, fill the contract link in README.
+2. Test with real Anthropic and OpenAI keys (confirm the OpenAI model name). AI paths were only tested with mocked HTTP.
+3. Test wallet (Sepolia) mode in a real browser with MetaMask. Never tested.
+4. Host the app (for example Vercel), put the URL in README. Record the 2-minute demo video (docs/DEMO.md), submit on DoraHacks before 2026/11/01 02:01 (Lagos time).
+5. Before submitting: get a lawyer to review the law notes; remove or gitignore Handoff.md; check there are no secrets.
+6. Optional: research more states (FCT, Enugu, Rivers, Ogun, Oyo) and add verified entries to lib/domain/tenancy-rules.ts with tests.
 
 ## Design plan (decided; build to this)
 - Feel: a trustworthy case file, not a crypto dashboard. Left-aligned, single column, borders and rules that carry meaning, no identical card grid.
@@ -97,4 +92,4 @@ Circuit: crypto protocol / legal-tech (judges likely lawyers and compliance peop
 1. Tenant chats with the agent (state, budget, rooms). 2. Pastes a landlord document; the check flags problems. 3. Agreement signed by both parties; hash on Sepolia; verify page. 4. Landlord "demands" early exit; the agent generates the response letter. 5. Quick look at the widow tab.
 
 ## Next step when resumed
-Open this repo, read this file and `git log`, run `npm install && npm run check`, then continue with "STILL TO DO" item 1. Do not start over: the logic is finished and tested; the work left is the pages, README, live check script, Sepolia deploy and demo.
+Open this repo, read this file and `git log`, run `npm install && npm run check`. The code is finished; what is left is the Sepolia deploy, real-key testing, hosting, demo video and submission (see STILL TO DO). Commits must be authored by Agozie180 only, with no co-author trailers.
