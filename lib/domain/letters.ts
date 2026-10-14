@@ -4,6 +4,14 @@ import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenanc
 import { stateLabel } from "./jurisdiction";
 import { evictionNoteFor } from "./tenancy-rules";
 
+export type RecordLocation = "sepolia" | "demo";
+
+function recordPhrase(location: RecordLocation): string {
+  return location === "sepolia"
+    ? "on the Ethereum Sepolia test network"
+    : "in the CourtAgent demo registry (a practice copy in a browser, not a public blockchain)";
+}
+
 export type LetterResult = { letter: string; notes: string[] };
 
 // ---------------------------------------------------------------------------------------------
@@ -23,6 +31,7 @@ export type ExitLetterInput = {
   annualRentNgn: number;
   agreementHash: string;
   fullySigned: boolean;
+  recordLocation: RecordLocation;
   demandDate: string; // YYYY-MM-DD
   demandSummary: string; // what the landlord said or did, in the tenant's words
   letterDate: string; // YYYY-MM-DD
@@ -33,8 +42,8 @@ export function buildExitResponseLetter(input: ExitLetterInput): LetterResult {
   const notice = noticeText(input);
   const advance = Math.round((input.annualRentNgn / 12) * input.advanceMonths);
   const record = input.fullySigned
-    ? `A record of this agreement, signed by both of us, is on the Ethereum Sepolia test network under the hash ${input.agreementHash}.`
-    : `A record of this agreement is on the Ethereum Sepolia test network under the hash ${input.agreementHash}.`;
+    ? `A record of this agreement, signed by both of us, is ${recordPhrase(input.recordLocation)} under the hash ${input.agreementHash}.`
+    : `A record of this agreement is ${recordPhrase(input.recordLocation)} under the hash ${input.agreementHash}.`;
 
   const letter = `${input.letterDate}
 
@@ -92,6 +101,7 @@ export type WidowLetterInput = {
   deceasedName: string;
   propertyDescription: string;
   recordHash: string;
+  recordLocation: RecordLocation;
   recordDate: string; // YYYY-MM-DD, the day the property record was registered
   marriageType: MarriageType;
   hasWill: boolean;
@@ -138,7 +148,7 @@ RE: NOTICE OF MY LAWFUL OCCUPATION OF THE PROPERTY OF THE LATE ${input.deceasedN
 
 1. I am the widow of the late ${input.deceasedName}. I live in and use the property described as: ${input.propertyDescription}.
 
-2. A record of this property and its documents was registered on ${input.recordDate}. The record is on the Ethereum Sepolia test network under the hash ${input.recordHash}, so the documents cannot be quietly changed after that date.
+2. A record of this property and its documents was registered on ${input.recordDate}. The record is ${recordPhrase(input.recordLocation)} under the hash ${input.recordHash}, so the text of the record cannot be quietly changed after that date.
 
 3. ${legalLines.join(" ")}
 

@@ -130,7 +130,7 @@ ${terms.cautionNgn > 0 ? "The caution deposit is refundable at the end of the te
 The tenant may live in the Premises peacefully for the term. The tenant keeps the Premises clean and reports faults promptly. The landlord is responsible for structural repairs unless the damage was caused by the tenant.
 
 9. RECORD OF THIS AGREEMENT
-The keccak256 hash of this exact text is recorded on the Ethereum Sepolia test network by the wallets listed in clause 1. Anyone holding a copy can hash it and check it against that record. If any word is changed, the hash will no longer match.
+The keccak256 hash of this exact text is registered, by the wallets listed in clause 1, in a CourtAgent document registry (a smart contract on the Ethereum Sepolia test network, or its Demo Mode copy in a browser). Anyone holding a copy can hash it and check it against that record. If any word is changed, the hash will no longer match.
 
 10. IMPORTANT
 ${DISCLAIMER}

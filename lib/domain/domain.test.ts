@@ -195,6 +195,7 @@ describe("letters", () => {
       annualRentNgn: terms.annualRentNgn,
       agreementHash: "0xabc",
       fullySigned: true,
+      recordLocation: "sepolia",
       demandDate: "2027-01-10",
       demandSummary: "told me to pack out within two weeks.",
       letterDate: "2027-01-11",
@@ -212,6 +213,7 @@ describe("letters", () => {
       deceasedName: "Emeka Okoro",
       propertyDescription: "the family house at 4 Bode Street, Surulere, Lagos",
       recordHash: "0xdef",
+      recordLocation: "sepolia" as const,
       recordDate: "2026-10-20",
       hasWill: false,
       addressedTo: "The family of the late Mr Emeka Okoro",
@@ -225,6 +227,24 @@ describe("letters", () => {
     expect(customary.letter).not.toContain("Ukeje");
     expect(customary.letter).not.toContain("Administration of Estates Law");
     expect(customary.letter).toContain("customary marriage");
+  });
+  it("never claims a Demo Mode record is on a public blockchain", () => {
+    const demo = buildWidowLetter({
+      state: "Lagos",
+      widowName: "Mrs Ngozi Okoro",
+      deceasedName: "Emeka Okoro",
+      propertyDescription: "the family house",
+      recordHash: "0xdef",
+      recordLocation: "demo",
+      recordDate: "2026-10-20",
+      hasWill: false,
+      addressedTo: "The family",
+      letterDate: "2026-11-01",
+      marriageType: "unsure",
+      hasDaughters: false,
+    });
+    expect(demo.letter).toContain("demo registry");
+    expect(demo.letter).not.toContain("Ethereum Sepolia test network under the hash");
   });
 });
 
@@ -285,6 +305,7 @@ describe("Nigeria-wide support", () => {
       deceasedName: "Emeka Okoro",
       propertyDescription: "the family house in Enugu",
       recordHash: "0xdef",
+      recordLocation: "sepolia",
       recordDate: "2026-10-20",
       hasWill: false,
       addressedTo: "The family of the late Mr Emeka Okoro",

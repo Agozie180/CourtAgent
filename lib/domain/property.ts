@@ -29,7 +29,7 @@ export function buildPropertyRecord(input: PropertyRecordInput): string {
     : "No will has been made.";
   return `PROPERTY RECORD
 
-Prepared with CourtAgent. The text of this record is kept privately; only its hash is registered on the Ethereum Sepolia test network.
+Prepared with CourtAgent. The text of this record is kept privately; only its hash is registered in a CourtAgent document registry (a smart contract on the Ethereum Sepolia test network, or its Demo Mode copy in a browser).
 
 Registered by: ${input.registrantName.trim()} (wallet ${input.registrantWallet})
 Date of record: ${input.recordDate}
