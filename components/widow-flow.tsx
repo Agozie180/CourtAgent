@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Address } from "viem";
-import { saveDocument, loadDocuments, type SavedDocument } from "@/lib/storage";
+import { saveDocument, type SavedDocument } from "@/lib/storage";
+import { useOrigin, useRegistryRecord, useSavedDocuments, useToday } from "@/lib/hooks";
 import { buildVerifyPath } from "@/lib/share";
 import { hashDocument } from "@/lib/hash/document";
-import type { RegistryRecord, TxResult } from "@/lib/chain/types";
+import type { TxResult } from "@/lib/chain/types";
 import { DEMO_OWNER } from "@/lib/chain/demo";
 import { NIGERIAN_STATES, stateLabel } from "@/lib/domain/jurisdiction";
 import { buildWidowLetter, type MarriageType } from "@/lib/domain/letters";
@@ -13,8 +14,6 @@ import { buildPropertyRecord, validatePropertyRecord, type PropertyRecordInput }
 import { CopyButton, DocumentSheet, HashLine, Notice, TxLine, errorMessage } from "./bits";
 import { RecordStatus } from "./record-status";
 import { useSession } from "./session-provider";
-
-const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const emptyRecord = (): PropertyRecordInput => ({
   registrantName: "",
@@ -29,13 +28,25 @@ const emptyRecord = (): PropertyRecordInput => ({
 
 export function WidowFlow() {
   const session = useSession();
-  const [form, setForm] = useState<PropertyRecordInput>(emptyRecord());
-  const [record, setRecord] = useState<RegistryRecord | null>(null);
+  const today = useToday();
+  const origin = useOrigin();
+  const savedDocuments = useSavedDocuments();
+  const saved = useMemo(
+    () => savedDocuments.filter((doc): doc is Extract<SavedDocument, { kind: "PROPERTY_RECORD" }> => doc.kind === "PROPERTY_RECORD"),
+    [savedDocuments],
+  );
+
+  // What the user typed. The wallet and the default dates are derived below, so no effect has to copy them in.
+  const [draft, setDraft] = useState<PropertyRecordInput>(emptyRecord());
+  const registrantWallet = session.mode === "demo" ? DEMO_OWNER : (session.walletAccount ?? "");
+  const form = useMemo<PropertyRecordInput>(
+    () => ({ ...draft, registrantWallet, recordDate: draft.recordDate || today }),
+    [draft, registrantWallet, today],
+  );
+
   const [txs, setTxs] = useState<TxResult[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<Extract<SavedDocument, { kind: "PROPERTY_RECORD" }>[]>([]);
-  const [origin, setOrigin] = useState("");
 
   // letter
   const [state, setState] = useState("Lagos");
@@ -44,51 +55,20 @@ export function WidowFlow() {
   const [marriageType, setMarriageType] = useState<MarriageType>("unsure");
   const [hasDaughters, setHasDaughters] = useState(false);
   const [addressedTo, setAddressedTo] = useState("");
-  const [letterDate, setLetterDate] = useState("");
-
-  const refreshSaved = useCallback(() => {
-    setSaved(loadDocuments().filter((doc): doc is Extract<SavedDocument, { kind: "PROPERTY_RECORD" }> => doc.kind === "PROPERTY_RECORD"));
-  }, []);
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-    setForm((current) => ({ ...current, recordDate: current.recordDate || todayIso() }));
-    setLetterDate(todayIso());
-    refreshSaved();
-  }, [refreshSaved]);
-
-  useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      registrantWallet: session.mode === "demo" ? DEMO_OWNER : (session.walletAccount ?? ""),
-    }));
-  }, [session.mode, session.walletAccount]);
+  const [letterDateInput, setLetterDateInput] = useState("");
+  const letterDate = letterDateInput || today;
 
   const issues = useMemo(() => validatePropertyRecord(form), [form]);
   const text = issues.length === 0 ? buildPropertyRecord(form) : "";
   const hash = text ? hashDocument(text) : null;
-
-  const refreshRecord = useCallback(async () => {
-    if (!hash) {
-      setRecord(null);
-      return;
-    }
-    try {
-      setRecord(await session.registry.getRecord(hash));
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  }, [hash, session.registry]);
-
-  useEffect(() => {
-    void refreshRecord();
-  }, [refreshRecord]);
+  const { record, error: lookupError, refresh: refreshRecord } = useRegistryRecord(session.registry, hash);
+  const shownError = error ?? (lookupError ? errorMessage(lookupError) : null);
 
   const account = session.account;
   const isRegistrant = account !== null && form.registrantWallet.toLowerCase() === account.toLowerCase();
 
   function update<K extends keyof PropertyRecordInput>(key: K, value: PropertyRecordInput[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setDraft((current) => ({ ...current, [key]: value }));
   }
 
   async function registerAndSign() {
@@ -110,8 +90,7 @@ export function WidowFlow() {
         source: session.registry.source,
         record: form,
       });
-      refreshSaved();
-      await refreshRecord();
+      refreshRecord();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -119,23 +98,24 @@ export function WidowFlow() {
     }
   }
 
-  const letter = useMemo(() => {
-    if (!record || !hash || !widowName.trim() || !deceasedName.trim() || !letterDate) return null;
-    return buildWidowLetter({
-      state,
-      widowName: widowName.trim(),
-      deceasedName: deceasedName.trim(),
-      propertyDescription: form.propertyDescription.trim(),
-      recordHash: hash,
-      recordLocation: record.source === "chain" ? "sepolia" : "demo",
-      recordDate: form.recordDate,
-      marriageType,
-      hasWill: form.hasWill,
-      hasDaughters,
-      addressedTo: addressedTo.trim() || `The family of the late ${deceasedName.trim()}`,
-      letterDate,
-    });
-  }, [record, hash, state, widowName, deceasedName, form, marriageType, hasDaughters, addressedTo, letterDate]);
+  // A cheap pure template: computed on render, no memo needed.
+  const letter =
+    record && hash && widowName.trim() && deceasedName.trim() && letterDate
+      ? buildWidowLetter({
+          state,
+          widowName: widowName.trim(),
+          deceasedName: deceasedName.trim(),
+          propertyDescription: form.propertyDescription.trim(),
+          recordHash: hash,
+          recordLocation: record.source === "chain" ? "sepolia" : "demo",
+          recordDate: form.recordDate,
+          marriageType,
+          hasWill: form.hasWill,
+          hasDaughters,
+          addressedTo: addressedTo.trim() || `The family of the late ${deceasedName.trim()}`,
+          letterDate,
+        })
+      : null;
 
   const shareUrl = text && origin ? `${origin}${buildVerifyPath(text)}` : "";
 
@@ -151,7 +131,7 @@ export function WidowFlow() {
             defaultValue=""
             onChange={(event) => {
               const chosen = saved.find((doc) => doc.hash === event.target.value);
-              if (chosen) setForm({ ...chosen.record, registrantWallet: form.registrantWallet });
+              if (chosen) setDraft({ ...chosen.record });
             }}
           >
             <option value="">Choose a saved record</option>
@@ -239,7 +219,7 @@ export function WidowFlow() {
                     : "Connect your wallet in the header first."}
               </Notice>
             ) : null}
-            {error ? <Notice tone="error">{error}</Notice> : null}
+            {shownError ? <Notice tone="error">{shownError}</Notice> : null}
             {txs.map((tx) => (
               <TxLine key={tx.hash} hash={tx.hash} source={tx.source} />
             ))}
@@ -281,7 +261,7 @@ export function WidowFlow() {
               </div>
               <div className="field">
                 <label htmlFor="letter-date-w">Date of the notice</label>
-                <input id="letter-date-w" type="date" value={letterDate} onChange={(event) => setLetterDate(event.target.value)} />
+                <input id="letter-date-w" type="date" value={letterDate} onChange={(event) => setLetterDateInput(event.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="state-w">State where the property is</label>

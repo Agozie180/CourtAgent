@@ -32,14 +32,41 @@ function defaultStorage(): StorageLike | null {
   }
 }
 
-export function loadDocuments(storage: StorageLike | null = defaultStorage()): SavedDocument[] {
-  if (!storage) return [];
+export function parseDocuments(raw: string): SavedDocument[] {
   try {
-    const parsed = JSON.parse(storage.getItem(KEY) ?? "[]");
+    const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? (parsed as SavedDocument[]) : [];
   } catch {
     return [];
   }
+}
+
+/** The stored JSON text. A string is a stable snapshot for useSyncExternalStore. */
+export function readDocumentsRaw(storage: StorageLike | null = defaultStorage()): string {
+  try {
+    return storage?.getItem(KEY) ?? "[]";
+  } catch {
+    return "[]";
+  }
+}
+
+export function loadDocuments(storage: StorageLike | null = defaultStorage()): SavedDocument[] {
+  return parseDocuments(readDocumentsRaw(storage));
+}
+
+const listeners = new Set<() => void>();
+
+/** Calls back when a document is saved here or in another tab. */
+export function subscribeDocuments(onChange: () => void): () => void {
+  listeners.add(onChange);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === KEY || event.key === null) onChange();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(onChange);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
+  };
 }
 
 export function saveDocument(doc: SavedDocument, storage: StorageLike | null = defaultStorage()): void {
@@ -47,6 +74,7 @@ export function saveDocument(doc: SavedDocument, storage: StorageLike | null = d
   const others = loadDocuments(storage).filter((existing) => existing.hash !== doc.hash);
   try {
     storage.setItem(KEY, JSON.stringify([doc, ...others].slice(0, 30)));
+    listeners.forEach((listener) => listener());
   } catch {
     /* storage full or blocked: the document can still be copied from the screen */
   }

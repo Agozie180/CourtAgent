@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { Address } from "viem";
 import { postJson } from "@/lib/api/client";
 import { saveDocument } from "@/lib/storage";
+import { useOrigin, useRegistryRecord, useToday } from "@/lib/hooks";
 import { buildVerifyPath } from "@/lib/share";
 import { hashDocument } from "@/lib/hash/document";
-import type { RegistryRecord, TxResult } from "@/lib/chain/types";
+import type { TxResult } from "@/lib/chain/types";
 import { DEMO_LANDLORD, DEMO_TENANT } from "@/lib/chain/demo";
 import { buildAgreement, validateTerms, type TenancyTerms } from "@/lib/domain/agreement";
 import {
@@ -52,7 +53,6 @@ const ANSWER_QUESTIONS = {
 } as const;
 type AnswerKey = keyof typeof ANSWER_QUESTIONS;
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
 
 function providerNote(provider: string): string {
   return provider === "offline"
@@ -89,22 +89,18 @@ export function RentFlow() {
   const [explainError, setExplainError] = useState<string | null>(null);
 
   // Step 4
-  const [record, setRecord] = useState<RegistryRecord | null>(null);
   const [txs, setTxs] = useState<TxResult[]>([]);
   const [chainBusy, setChainBusy] = useState(false);
   const [chainError, setChainError] = useState<string | null>(null);
-  const [origin, setOrigin] = useState("");
+  const origin = useOrigin();
+  const today = useToday();
 
   // Step 5
-  const [demandDate, setDemandDate] = useState("");
+  const [demandDateInput, setDemandDateInput] = useState("");
   const [demandSummary, setDemandSummary] = useState("");
-  const [letterDate, setLetterDate] = useState("");
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-    setDemandDate(todayIso());
-    setLetterDate(todayIso());
-  }, []);
+  const [letterDateInput, setLetterDateInput] = useState("");
+  const demandDate = demandDateInput || today;
+  const letterDate = letterDateInput || today;
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -153,21 +149,7 @@ export function RentFlow() {
   const agreementText = terms && issues.length === 0 ? buildAgreement(terms) : "";
   const hash = agreementText ? hashDocument(agreementText) : null;
 
-  const refreshRecord = useCallback(async () => {
-    if (!hash) {
-      setRecord(null);
-      return;
-    }
-    try {
-      setRecord(await session.registry.getRecord(hash));
-    } catch (error) {
-      setChainError(errorMessage(error));
-    }
-  }, [hash, session.registry]);
-
-  useEffect(() => {
-    void refreshRecord();
-  }, [refreshRecord]);
+  const { record, error: lookupError, refresh: refreshRecord } = useRegistryRecord(session.registry, hash);
 
   const unlocked: Record<Step, boolean> = {
     details: true,
@@ -201,7 +183,6 @@ export function RentFlow() {
     setFields(emptyIntake());
     setMessages([{ role: "agent", text: questionFor("state") }]);
     setCheck(null);
-    setRecord(null);
     setTxs([]);
     setExplain(null);
     setAnswers({});
@@ -292,7 +273,7 @@ export function RentFlow() {
         source: session.registry.source,
         terms,
       });
-      await refreshRecord();
+      refreshRecord();
     } catch (error) {
       setChainError(errorMessage(error));
     } finally {
@@ -307,7 +288,7 @@ export function RentFlow() {
     try {
       const tx = await session.registry.sign(hash);
       setTxs((list) => [...list, tx]);
-      await refreshRecord();
+      refreshRecord();
     } catch (error) {
       setChainError(errorMessage(error));
     } finally {
@@ -601,7 +582,7 @@ export function RentFlow() {
                   : "Connect your wallet in the header first."}
             </Notice>
           ) : null}
-          {chainError ? <Notice tone="error">{chainError}</Notice> : null}
+          {chainError || lookupError ? <Notice tone="error">{chainError ?? errorMessage(lookupError)}</Notice> : null}
           {txs.map((tx) => (
             <TxLine key={tx.hash} hash={tx.hash} source={tx.source} />
           ))}
@@ -637,11 +618,11 @@ export function RentFlow() {
           <div className="field-grid">
             <div className="field">
               <label htmlFor="demand-date">Date of the demand</label>
-              <input id="demand-date" type="date" value={demandDate} onChange={(event) => setDemandDate(event.target.value)} />
+              <input id="demand-date" type="date" value={demandDate} onChange={(event) => setDemandDateInput(event.target.value)} />
             </div>
             <div className="field">
               <label htmlFor="letter-date">Date of your letter</label>
-              <input id="letter-date" type="date" value={letterDate} onChange={(event) => setLetterDate(event.target.value)} />
+              <input id="letter-date" type="date" value={letterDate} onChange={(event) => setLetterDateInput(event.target.value)} />
             </div>
           </div>
           <div className="field">

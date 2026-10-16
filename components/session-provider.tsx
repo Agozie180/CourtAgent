@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { Address } from "viem";
 import { DEMO_LANDLORD, DEMO_OWNER, DEMO_STRANGER, DEMO_TENANT, DemoRegistry } from "@/lib/chain/demo";
 import { getRegistryAddress } from "@/lib/chain/config";
@@ -42,23 +42,31 @@ function browserStorage(): Storage | null {
   }
 }
 
+const modeListeners = new Set<() => void>();
+function subscribeMode(onChange: () => void) {
+  modeListeners.add(onChange);
+  return () => modeListeners.delete(onChange);
+}
+function readSavedMode(): Mode {
+  try {
+    return browserStorage()?.getItem(MODE_KEY) === "wallet" ? "wallet" : "demo";
+  } catch {
+    return "demo";
+  }
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const chainConfigured = getRegistryAddress() !== null;
-  const [mode, setModeState] = useState<Mode>("demo");
+  // The saved choice is read from browser storage after hydration (the server always renders Demo Mode first).
+  const savedMode = useSyncExternalStore(subscribeMode, readSavedMode, () => "demo" as Mode);
+  const [chosenMode, setChosenMode] = useState<Mode | null>(null);
+  const mode: Mode = (chosenMode ?? savedMode) === "wallet" && chainConfigured ? "wallet" : "demo";
   const [demoActor, setDemoActor] = useState<DemoActor>("tenant");
   const [walletAccount, setWalletAccount] = useState<Address | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      if (browserStorage()?.getItem(MODE_KEY) === "wallet" && chainConfigured) setModeState("wallet");
-    } catch {
-      /* ignore */
-    }
-  }, [chainConfigured]);
-
   const setMode = useCallback((next: Mode) => {
-    setModeState(next);
+    setChosenMode(next);
     try {
       browserStorage()?.setItem(MODE_KEY, next);
     } catch {

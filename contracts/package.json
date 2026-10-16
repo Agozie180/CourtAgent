@@ -1,0 +1,30 @@
+{
+  "name": "courtagent-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hardhat 3 workspace for the CourtAgent DocumentRegistry. Kept separate so the web app (and Vercel) never installs the contract toolchain.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.10"
+  },
+  "scripts": {
+    "build": "hardhat build",
+    "test": "hardhat test",
+    "typecheck": "hardhat build --quiet && tsc --noEmit",
+    "deploy": "hardhat build --quiet && tsx scripts/deploy.ts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.7",
+    "@types/node": "^22.10.2",
+    "dotenv": "^17.0.0",
+    "hardhat": "^3.20.0",
+    "solc": "0.8.37",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3",
+    "viem": "^2.57.5"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
+  }
+}

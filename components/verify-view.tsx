@@ -1,72 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import type { Hex } from "viem";
 import { hashDocument, isDocHash, shortHash } from "@/lib/hash/document";
 import { comparePartiesToText } from "@/lib/hash/parties";
 import { readShareFromHash } from "@/lib/share";
-import { loadDocuments, type SavedDocument } from "@/lib/storage";
-import type { RegistryRecord, TxResult } from "@/lib/chain/types";
+import { useRegistryRecord, useSavedDocuments } from "@/lib/hooks";
+import type { TxResult } from "@/lib/chain/types";
 import { HashLine, Notice, TxLine, errorMessage } from "./bits";
 import { RecordStatus, formatTime } from "./record-status";
 import { useSession } from "./session-provider";
 
+function subscribeHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+const readHash = () => window.location.hash;
+
 export function VerifyView() {
   const session = useSession();
-  const [text, setText] = useState("");
+  // Text from a share link (/verify#d=...). The fragment never leaves the browser.
+  const linkedText = readShareFromHash(useSyncExternalStore(subscribeHash, readHash, () => ""));
+  // Text the visitor typed or opened. It wins over the link, and `null` means "still showing the link's text".
+  const [edited, setEdited] = useState<string | null>(null);
   const [typedHash, setTypedHash] = useState("");
-  const [fromLink, setFromLink] = useState(false);
-  const [record, setRecord] = useState<RegistryRecord | null>(null);
-  const [looked, setLooked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tx, setTx] = useState<TxResult | null>(null);
-  const [saved, setSaved] = useState<SavedDocument[]>([]);
+  const saved = useSavedDocuments();
 
-  useEffect(() => {
-    const read = () => {
-      const shared = readShareFromHash(window.location.hash);
-      if (shared) {
-        setText(shared);
-        setFromLink(true);
-      }
-    };
-    read();
-    setSaved(loadDocuments());
-    window.addEventListener("hashchange", read);
-    return () => window.removeEventListener("hashchange", read);
-  }, []);
+  const text = edited ?? linkedText ?? "";
+  const fromLink = edited === null && linkedText !== null;
 
   const hash = useMemo<Hex | null>(() => {
     if (text.trim()) return hashDocument(text);
     return isDocHash(typedHash) ? (typedHash.trim() as Hex) : null;
   }, [text, typedHash]);
 
+  const { record, looked, error: lookupError, refresh } = useRegistryRecord(session.registry, hash);
+
   const partyCheck = useMemo(
     () => (record && text.trim() ? comparePartiesToText(text, record.parties) : null),
     [record, text],
   );
-
-  const lookup = useCallback(async () => {
-    if (!hash) {
-      setRecord(null);
-      setLooked(false);
-      return;
-    }
-    try {
-      setError(null);
-      setRecord(await session.registry.getRecord(hash));
-      setLooked(true);
-    } catch (err) {
-      setError(errorMessage(err));
-      setRecord(null);
-      setLooked(false);
-    }
-  }, [hash, session.registry]);
-
-  useEffect(() => {
-    void lookup();
-  }, [lookup]);
 
   async function sign() {
     if (!hash) return;
@@ -74,7 +50,7 @@ export function VerifyView() {
     setError(null);
     try {
       setTx(await session.registry.sign(hash));
-      await lookup();
+      refresh();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -104,7 +80,7 @@ export function VerifyView() {
           id="verify-text"
           value={text}
           onChange={(event) => {
-            setText(event.target.value);
+            setEdited(event.target.value);
             setTx(null);
           }}
           style={{ minHeight: 220, fontFamily: "var(--font-doc)" }}
@@ -124,7 +100,7 @@ export function VerifyView() {
       ) : null}
 
       {hash ? <HashLine hash={hash} /> : null}
-      {error ? <Notice tone="error">{error}</Notice> : null}
+      {error || lookupError ? <Notice tone="error">{error ?? errorMessage(lookupError)}</Notice> : null}
 
       {hash && looked && record ? (
         <>
@@ -184,8 +160,7 @@ export function VerifyView() {
                       type="button"
                       className="button ghost small"
                       onClick={() => {
-                        setText(doc.text);
-                        setFromLink(false);
+                        setEdited(doc.text);
                         setTx(null);
                       }}
                     >

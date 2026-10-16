@@ -8,7 +8,7 @@ export default defineConfig({
     },
   },
   // tsconfig keeps "jsx": "preserve" for Next.js, so tell the test transformer to compile JSX itself.
-  esbuild: { jsx: "automatic" },
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
     include: ["lib/**/*.test.ts", "components/**/*.test.tsx"],

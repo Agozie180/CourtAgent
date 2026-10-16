@@ -2,51 +2,47 @@
   "name": "courtagent",
   "version": "0.1.0",
   "private": true,
-  "description": "CourtAgent: an AI legal assistant for Lagos tenants and widows, with tamper-proof records on Ethereum Sepolia.",
+  "description": "CourtAgent: an AI legal assistant for Nigerian tenants and widows, with tamper-proof records on Ethereum Sepolia.",
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": "22.x || 24.x"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit && hardhat compile --quiet && tsc -p tsconfig.hardhat.json --noEmit",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "contracts:compile": "hardhat compile",
-    "contracts:test": "hardhat test",
-    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "setup": "npm ci && npm --prefix contracts ci",
+    "contracts:build": "npm --prefix contracts run build",
+    "contracts:test": "npm --prefix contracts test",
+    "contracts:typecheck": "npm --prefix contracts run typecheck",
+    "deploy:sepolia": "npm --prefix contracts run deploy",
     "verify:live": "tsx scripts/verify-live.ts",
     "measure": "tsx scripts/measure.ts",
-    "check": "npm run typecheck && npm run lint && npm test && npm run contracts:test"
+    "check": "npm run typecheck && npm run lint && npm test && npm run contracts:typecheck && npm run contracts:test"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/source-serif-4": "^5.3.1",
-    "lucide-react": "^0.468.0",
-    "next": "^15.5.7",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "viem": "^2.21.0"
+    "next": "^16.4.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "viem": "^2.57.7"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
-    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
-    "dotenv": "^16.4.5",
-    "eslint": "^9.17.0",
-    "eslint-config-next": "^15.5.7",
-    "hardhat": "^2.22.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
-    "solc": "0.8.28",
-    "ts-node": "^10.9.2",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5"
   }
 }
