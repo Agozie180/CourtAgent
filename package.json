@@ -12,7 +12,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "hardhat compile --quiet && tsc --noEmit",
+    "typecheck": "tsc --noEmit && hardhat compile --quiet && tsc -p tsconfig.hardhat.json --noEmit",
     "test": "vitest run",
     "contracts:compile": "hardhat compile",
     "contracts:test": "hardhat test",
