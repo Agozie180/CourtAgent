@@ -8,7 +8,7 @@
 |---|---|
 | **Try it** | Live demo: _add the hosted URL_ (or `npm ci && npm run dev`, 30 seconds, no keys) |
 | **Demo video** | _add link_ (script: [`docs/DEMO.md`](docs/DEMO.md)) |
-| **Contract on Ethereum Sepolia** | _add Etherscan link after `npm run deploy:sepolia`_ |
+| **Contract on Ethereum Sepolia** | [0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff](https://sepolia.etherscan.io/address/0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff) |
 | **Verify page** | `/verify` in the app. Paste any agreement text and see if it was recorded. |
 | **Event** | [BLI Legal Tech Hackathon 2](https://dorahacks.io/hackathon/1904) (DoraHacks, Blockchain Legal Institute). Listed pool: 20,000 USD. |
 | **Themes targeted** | LegalTech and RegTech (main) · Web3 for Social Good (the widow module) · AI x Blockchain (the agent) |
@@ -77,7 +77,7 @@ sequenceDiagram
 
 | Surface | Used? | Evidence, or the reason it is not |
 |---|---|---|
-| Ethereum Sepolia and a Solidity registry | Yes | `contracts/src/DocumentRegistry.sol`, 11 contract tests, `npm run deploy:sepolia`. **Address pending**: the build environment could not reach a Sepolia RPC. |
+| Ethereum Sepolia and a Solidity registry | Yes | `contracts/src/DocumentRegistry.sol`, 11 contract tests, `npm run deploy:sepolia`. Deployed on Sepolia (block 11,931,735). |
 | viem and an injected wallet (MetaMask) | Yes | `lib/chain/onchain.ts`. **Not yet tested in a real browser wallet.** |
 | Anthropic and OpenAI over plain `fetch` | Yes, optional | `lib/ai/provider.ts`, mocked-HTTP tests. **Not yet tested with real keys.** |
 | Offline rules mode | Yes | The whole product runs with no key. |

@@ -1,6 +1,6 @@
 # Handoff: CourtAgent (BLI Legal Tech Hackathon 2)
 
-Last updated: 2026-10-17 (Lagos time). Status: BUILD COMPLETE, root audit done (82 app tests, 11 contract tests, build passes, npm audit 0). Vercel build fix: tsconfig no longer includes contract tests; contracts are an isolated workspace in contracts/ (Hardhat 3, solc 0.8.37). Deps modernised (Next 16, React 19.3, ESLint 10, vitest 5, Node 22). See AUDIT.md F-7 to F-14. The contract must be REDEPLOYED (solc and register rule changed). Set NEXT_PUBLIC_* env vars in Vercel before building. Remaining work needs the owner's keys, wallet and accounts (see STILL TO DO).
+Last updated: 2026-10-17 (Lagos time). Status: BUILD COMPLETE, root audit done (82 app tests, 11 contract tests, build passes, npm audit 0). Vercel build fix: tsconfig no longer includes contract tests; contracts are an isolated workspace in contracts/ (Hardhat 3, solc 0.8.37). Deps modernised (Next 16, React 19.3, ESLint 10, vitest 5, Node 22). See AUDIT.md F-7 to F-14. DEPLOYED to Sepolia on 2026-10-17 via the GitHub Actions "Deploy contract" workflow: 0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff (block 11931735, see deployments/sepolia.json). Still set NEXT_PUBLIC_REGISTRY_ADDRESS in Vercel. Set NEXT_PUBLIC_* env vars in Vercel before building. Remaining work needs the owner's keys, wallet and accounts (see STILL TO DO).
 Repo: https://github.com/Agozie180/CourtAgent (branch main). Local working copy: /home/claude/work/CourtAgent in the build session.
 
 ## Hackathon
