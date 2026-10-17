@@ -1,6 +1,6 @@
 import { isIsoDate } from "./dates";
 import { formatNgn } from "./intake";
-import { oneLine } from "./text";
+import { oneLine, plural } from "./text";
 import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
 import { isNigerianState, stateLabel } from "./jurisdiction";
 import { checkAdvanceRentFor, lawNoteFor, noticePeriodFor, ruleFor } from "./tenancy-rules";
@@ -23,6 +23,8 @@ export type TenancyTerms = {
   durationMonths: number;
   /** Optional: a notice period the parties agree instead of the default. */
   agreedNotice?: string;
+  /** Optional: a third person (a witness or guarantor) who must also sign. Empty or missing means only tenant and landlord. */
+  witnessWallet?: string;
 };
 
 export type TermsIssue = { field: string; message: string };
@@ -94,6 +96,13 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   ) {
     add("tenantWallet", "Landlord and tenant need two different wallet addresses.");
   }
+  if (terms.witnessWallet !== undefined) {
+    const witness = terms.witnessWallet.toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(witness)) add("witnessWallet", "The witness wallet address must be a valid 0x address.");
+    else if (witness === (terms.landlordWallet ?? "").toLowerCase() || witness === (terms.tenantWallet ?? "").toLowerCase()) {
+      add("witnessWallet", "The witness needs a different wallet from the landlord and the tenant.");
+    }
+  }
   if (terms.advanceMonths !== undefined) {
     const advance = terms.advanceMonths;
     if (!(typeof advance === "number" && Number.isInteger(advance) && advance <= 120)) {
@@ -139,6 +148,7 @@ export function buildAgreement(raw: TenancyTerms): string {
     tenantName: oneLine(raw.tenantName),
     propertyAddress: oneLine(raw.propertyAddress),
     agreedNotice: raw.agreedNotice === undefined ? undefined : oneLine(raw.agreedNotice),
+    witnessWallet: raw.witnessWallet?.trim() || undefined,
   };
   const monthly = terms.annualRentNgn / 12;
   const advanceAmount = Math.round(monthly * terms.advanceMonths);
@@ -158,17 +168,17 @@ Prepared with CourtAgent for review by both parties.
 
 1. PARTIES
 Landlord: ${terms.landlordName} (wallet ${terms.landlordWallet})
-Tenant: ${terms.tenantName} (wallet ${terms.tenantWallet})
+Tenant: ${terms.tenantName} (wallet ${terms.tenantWallet})${terms.witnessWallet ? `\nWitness, who must also sign: wallet ${terms.witnessWallet}` : ""}
 
 2. PREMISES
 The landlord lets and the tenant takes: ${rooms} at ${terms.propertyAddress}, ${stateLabel(terms.state)}, Nigeria ("the Premises").
 
 3. TERM
-The tenancy is a ${TENANCY_TYPE_LABEL[terms.tenancyType]} starting on ${terms.startDate} for ${terms.durationMonths} months, ending on ${end}.
+The tenancy is a ${TENANCY_TYPE_LABEL[terms.tenancyType]} starting on ${terms.startDate} for ${plural(terms.durationMonths, "month")}, ending on ${end}.
 
 4. RENT AND PAYMENT
 Yearly rent: ${formatNgn(terms.annualRentNgn)} (about ${formatNgn(monthly)} a month).
-Rent paid in advance: ${terms.advanceMonths} months, amounting to ${formatNgn(advanceAmount)}.
+Rent paid in advance: ${plural(terms.advanceMonths, "month")}, amounting to ${formatNgn(advanceAmount)}.
 Refundable caution deposit: ${terms.cautionNgn > 0 ? formatNgn(terms.cautionNgn) : "none"}.
 The landlord will give the tenant a signed receipt for every payment, showing the date, the amount and the period it covers.
 

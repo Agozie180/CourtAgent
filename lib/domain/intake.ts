@@ -1,5 +1,6 @@
 import { TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
 import { findStateInText, isNigerianState } from "./jurisdiction";
+import { plural } from "./text";
 
 export type IntakeFields = {
   state: string | null; // Nigerian state or "FCT"
@@ -81,6 +82,36 @@ export function isComplete(fields: IntakeFields): boolean {
   return nextMissing(fields) === null;
 }
 
+const FIELD_LABEL: Record<IntakeKey, string> = {
+  state: "state",
+  budgetNgn: "yearly budget",
+  bedrooms: "bedrooms",
+  parlour: "parlour (yes or no)",
+  area: "area",
+  landlordName: "landlord's name",
+  tenantName: "your name",
+  annualRentNgn: "quoted yearly rent",
+  advanceMonths: "months paid in advance",
+  cautionNgn: "caution deposit",
+  tenancyType: "tenancy type",
+  startDate: "start date",
+  durationMonths: "duration",
+};
+
+export const fieldLabel = (key: IntakeKey): string => FIELD_LABEL[key];
+
+/** Every detail still missing, in question order, so the user sees the whole list at once. */
+export function missingFields(fields: IntakeFields): IntakeKey[] {
+  return INTAKE_ORDER.filter((key) => fields[key] === null);
+}
+
+/** A warning when the landlord's quoted rent is above the tenant's budget, else null. */
+export function overBudgetWarning(fields: Pick<IntakeFields, "annualRentNgn" | "budgetNgn">): string | null {
+  if (fields.annualRentNgn === null || fields.budgetNgn === null || fields.annualRentNgn <= fields.budgetNgn) return null;
+  const over = fields.annualRentNgn - fields.budgetNgn;
+  return `The quoted rent of ${formatNgn(fields.annualRentNgn)} a year is ${formatNgn(over)} above your budget of ${formatNgn(fields.budgetNgn)}. Decide if you can afford it before you go on.`;
+}
+
 export function describeFields(fields: IntakeFields): string[] {
   const lines: string[] = [];
   if (fields.state) lines.push(`State: ${fields.state === "FCT" ? "FCT (Abuja)" : fields.state}`);
@@ -91,11 +122,11 @@ export function describeFields(fields: IntakeFields): string[] {
   if (fields.landlordName) lines.push(`Landlord: ${fields.landlordName}`);
   if (fields.tenantName) lines.push(`Tenant: ${fields.tenantName}`);
   if (fields.annualRentNgn !== null) lines.push(`Yearly rent: ${formatNgn(fields.annualRentNgn)}`);
-  if (fields.advanceMonths !== null) lines.push(`Advance rent: ${fields.advanceMonths} months`);
+  if (fields.advanceMonths !== null) lines.push(`Advance rent: ${plural(fields.advanceMonths, "month")}`);
   if (fields.cautionNgn !== null) lines.push(`Caution deposit: ${formatNgn(fields.cautionNgn)}`);
   if (fields.tenancyType) lines.push(`Tenancy type: ${TENANCY_TYPE_LABEL[fields.tenancyType]}`);
   if (fields.startDate) lines.push(`Start date: ${fields.startDate}`);
-  if (fields.durationMonths !== null) lines.push(`Duration: ${fields.durationMonths} months`);
+  if (fields.durationMonths !== null) lines.push(`Duration: ${plural(fields.durationMonths, "month")}`);
   return lines;
 }
 
@@ -205,12 +236,28 @@ function toIso(year: number, month: number, day: number): string | null {
   return date.toISOString().slice(0, 10);
 }
 
-function cleanName(text: string): string | null {
-  const cleaned = text
+const NOT_A_NAME = /\d|[₦@#$%&*=+<>/\\|_~^]|\b(?:want|need|looking|house|flat|apartment|room|rooms|bedroom|bedrooms|bed|rent|naira|ngn|million|budget|parlou?r|lagos|abuja|per year|a year|yearly|monthly|yes|no|please|how|what|which|when|where|why|hello|hi|thanks|thank)\b/i;
+
+/** Why an answer is not a person's name, or null when it looks like one. */
+export function nameProblem(raw: string): string | null {
+  const name = raw
     .replace(/^(my name is|i am|i'm|it is|it's|the landlord is|landlord is|his name is|her name is|name:)\s*/i, "")
     .replace(/[.!]+$/g, "")
     .trim();
-  return cleaned.length >= 2 && cleaned.length <= 80 && /[a-zA-Z]/.test(cleaned) ? cleaned : null;
+  if (name.length < 2) return "That is too short to be a name.";
+  if (name.length > 60) return "That is too long to be a name.";
+  if (NOT_A_NAME.test(name) || !/^[\p{L}][\p{L}'’.\- ]*$/u.test(name) || name.split(/\s+/).length > 6) {
+    return "That does not look like a person's full name. Type the name only, for example Mrs Ngozi Okoro.";
+  }
+  return null;
+}
+
+function cleanName(text: string): string | null {
+  if (nameProblem(text)) return null;
+  return text
+    .replace(/^(my name is|i am|i'm|it is|it's|the landlord is|landlord is|his name is|her name is|name:)\s*/i, "")
+    .replace(/[.!]+$/g, "")
+    .trim();
 }
 
 /**
@@ -223,15 +270,21 @@ export function parseIntakeOffline(message: string, expected: IntakeKey | null):
   if (!text) return found;
   const lower = text.toLowerCase();
 
-  const foundState = findStateInText(text);
-  if (foundState) found.state = foundState;
+  // The state is only ever set by answering the state question, so a message that merely mentions a place
+  // ("a house in Abuja") can never change which state's law applies.
+  if (expected === "state") {
+    const foundState = findStateInText(text);
+    if (foundState) found.state = foundState;
+  }
 
-  const area = KNOWN_AREAS.find((name) => lower.includes(name));
+  // Free-text extras (area, bedrooms, parlour) are only taken while the early "what are you looking for" questions are open.
+  const early = expected === null || (["state", "budgetNgn", "bedrooms", "parlour", "area"] as IntakeKey[]).includes(expected);
+  const area = early ? KNOWN_AREAS.find((name) => lower.includes(name)) : undefined;
   if (area) found.area = area.replace(/\b\w/g, (c) => c.toUpperCase());
-  if (/\bparlou?r\b/.test(lower) && expected !== "parlour") {
+  if (early && /\bparlou?r\b/.test(lower) && expected !== "parlour") {
     found.parlour = !/\b(no|without|don'?t)\b[^.]*parlou?r/.test(lower);
   }
-  const bedrooms = /(\d+|self[\s-]?contain|studio|\b(?:one|two|three|four|five)\b)\s*(?:-)?\s*(?:bed|room|br\b|bedroom|self)/.test(lower)
+  const bedrooms = early && /(\d+|self[\s-]?contain|studio|\b(?:one|two|three|four|five)\b)\s*(?:-)?\s*(?:bed|room|br\b|bedroom|self)/.test(lower)
     ? parseCount(lower)
     : null;
   if (bedrooms !== null && expected !== "bedrooms") found.bedrooms = bedrooms;
@@ -327,9 +380,9 @@ export function sanitizeFields(input: unknown): Partial<IntakeFields> {
   const area = str(raw.area);
   if (area) out.area = area;
   const landlord = str(raw.landlordName);
-  if (landlord) out.landlordName = landlord;
+  if (landlord && !nameProblem(landlord)) out.landlordName = landlord;
   const tenant = str(raw.tenantName);
-  if (tenant) out.tenantName = tenant;
+  if (tenant && !nameProblem(tenant)) out.tenantName = tenant;
   const rent = num(raw.annualRentNgn, 1, 10_000_000_000);
   if (rent !== null) out.annualRentNgn = rent;
   const advance = num(raw.advanceMonths, 1, 120);
@@ -342,6 +395,31 @@ export function sanitizeFields(input: unknown): Partial<IntakeFields> {
   if (typeof raw.startDate === "string" && parseDate(raw.startDate)) out.startDate = parseDate(raw.startDate);
   const duration = num(raw.durationMonths, 1, 240);
   if (duration !== null) out.durationMonths = duration;
+  return out;
+}
+
+/** Why the answer to this question was not accepted, in plain words. Null when no specific reason applies. */
+export function answerProblem(key: IntakeKey | null, message: string): string | null {
+  if (key === "landlordName" || key === "tenantName") return nameProblem(message);
+  if (key === "state" && !findStateInText(message)) return "I could not find a Nigerian state in that. Type the state, for example Lagos, Enugu or Abuja.";
+  if ((key === "budgetNgn" || key === "annualRentNgn") && parseMoney(message) === null) return "I need an amount in naira, for example 1.2 million or 800k.";
+  if (key === "startDate" && !parseDate(message)) return "I need a real date, for example 2026-12-01.";
+  if (key === "tenancyType" && !parseTenancyType(message)) return "Choose yearly, monthly, quarterly, half-yearly, at will or fixed term.";
+  if ((key === "advanceMonths" || key === "durationMonths") && parseMonths(message) === null) return "I need a number of months or years, for example 12 months or 1 year.";
+  return null;
+}
+
+/** Keep only the fields this answer is allowed to set. After the first questions, a message can set only the field that was asked. */
+export function restrictToExpected(update: Partial<IntakeFields>, current: IntakeFields, expected: IntakeKey | null): Partial<IntakeFields> {
+  const early = new Set<IntakeKey>(["budgetNgn", "bedrooms", "parlour", "area"]);
+  const askedEarly = expected === null || early.has(expected) || expected === "state";
+  const out: Partial<IntakeFields> = {};
+  for (const key of INTAKE_ORDER) {
+    const value = update[key];
+    if (value === undefined || value === null) continue;
+    if (key === expected) (out as Record<string, unknown>)[key] = value; // the answer to the question just asked
+    else if (key !== "state" && askedEarly && early.has(key) && current[key] === null) (out as Record<string, unknown>)[key] = value; // a bonus detail, never an overwrite
+  }
   return out;
 }
 

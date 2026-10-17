@@ -1,26 +1,35 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import type { Address } from "viem";
-import { DEMO_LANDLORD, DEMO_OWNER, DEMO_STRANGER, DEMO_TENANT, DemoRegistry } from "@/lib/chain/demo";
+import { DEMO_LANDLORD, DEMO_OWNER, DEMO_STRANGER, DEMO_TENANT, DEMO_WITNESS, DemoRegistry } from "@/lib/chain/demo";
 import { getRegistryAddress } from "@/lib/chain/config";
 import { OnChainRegistry, connectInjectedWallet } from "@/lib/chain/onchain";
 import type { RegistryBackend } from "@/lib/chain/types";
 
 export type Mode = "demo" | "wallet";
-export type DemoActor = "tenant" | "landlord" | "owner" | "stranger";
+export type DemoActor = "tenant" | "landlord" | "owner" | "witness" | "stranger";
 
 export const DEMO_ACTORS: Record<DemoActor, { label: string; address: Address }> = {
   tenant: { label: "Tenant", address: DEMO_TENANT },
   landlord: { label: "Landlord", address: DEMO_LANDLORD },
   owner: { label: "Property owner or widow", address: DEMO_OWNER },
+  witness: { label: "Witness (an extra signer)", address: DEMO_WITNESS },
   stranger: { label: "Someone else (not a party)", address: DEMO_STRANGER },
 };
+
+/** On /widow only the owner and a bystander make sense: there is no tenant or landlord in a family property record. */
+export function actorsForPath(pathname: string | null): DemoActor[] {
+  return pathname?.startsWith("/widow") ? ["owner", "witness", "stranger"] : ["tenant", "landlord", "owner", "witness", "stranger"];
+}
 
 type Session = {
   mode: Mode;
   setMode: (mode: Mode) => void;
   chainConfigured: boolean;
+  /** The Demo Mode roles offered on this page. */
+  actors: DemoActor[];
   demoActor: DemoActor;
   setDemoActor: (actor: DemoActor) => void;
   walletAccount: Address | null;
@@ -61,12 +70,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const savedMode = useSyncExternalStore(subscribeMode, readSavedMode, () => "demo" as Mode);
   const [chosenMode, setChosenMode] = useState<Mode | null>(null);
   const mode: Mode = (chosenMode ?? savedMode) === "wallet" && chainConfigured ? "wallet" : "demo";
-  const [demoActor, setDemoActor] = useState<DemoActor>("tenant");
+  const pathname = usePathname();
+  const actors = useMemo(() => actorsForPath(pathname), [pathname]);
+  const [chosenActor, setDemoActor] = useState<DemoActor>("tenant");
+  // If the chosen role is not offered on this page (for example Tenant on /widow), use the first one that is.
+  const demoActor: DemoActor = actors.includes(chosenActor) ? chosenActor : actors[0];
   const [walletAccount, setWalletAccount] = useState<Address | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
 
   const setMode = useCallback((next: Mode) => {
     setChosenMode(next);
+    // A wallet error ("No Ethereum wallet found") belongs to Sepolia mode, so it must not follow the user back to Demo Mode.
+    if (next === "demo") setWalletError(null);
     try {
       browserStorage()?.setItem(MODE_KEY, next);
     } catch {
@@ -109,15 +124,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       mode,
       setMode,
       chainConfigured,
+      actors,
       demoActor,
       setDemoActor,
       walletAccount,
       connectWallet,
-      walletError,
+      walletError: mode === "demo" ? null : walletError,
       account,
       registry,
     }),
-    [mode, setMode, chainConfigured, demoActor, walletAccount, connectWallet, walletError, account, registry],
+    [mode, setMode, chainConfigured, actors, demoActor, walletAccount, connectWallet, walletError, account, registry],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

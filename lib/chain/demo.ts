@@ -136,4 +136,5 @@ export const DEMO_TENANT: Address = "0x0000000000000000000000000000000000007e01"
 export const DEMO_LANDLORD: Address = "0x000000000000000000000000000000000001a2d1";
 export const DEMO_OWNER: Address = "0x000000000000000000000000000000000000b0b1";
 /** Not a party to any demo document. Used to show that the registry refuses a stranger. */
+export const DEMO_WITNESS: Address = "0x0000000000000000000000000000000000000d17";
 export const DEMO_STRANGER: Address = "0x0000000000000000000000000000000000000abc";

@@ -1,4 +1,5 @@
 import { DISCLAIMER } from "./lagos-tenancy";
+import { oneLine } from "./text";
 
 export type PropertyRecordInput = {
   registrantName: string; // the person registering, for example the husband or the couple
@@ -9,7 +10,14 @@ export type PropertyRecordInput = {
   hasWill: boolean;
   willSummary: string; // short, no secrets; optional
   recordDate: string; // YYYY-MM-DD
+  /** Optional: a second person (a witness, a lawyer or a family member) who must also sign. Empty means only the registrant. */
+  witnessWallet?: string;
 };
+
+/** True when the "documents held" text lists a will. */
+export function mentionsWill(documents: string): boolean {
+  return /\b(last\s+)?will\b(\s+and\s+testament)?|\btestament\b/i.test(documents);
+}
 
 export function validatePropertyRecord(input: Partial<PropertyRecordInput>): string[] {
   const issues: string[] = [];
@@ -19,24 +27,32 @@ export function validatePropertyRecord(input: Partial<PropertyRecordInput>): str
   if (!input.documentsHeld?.trim()) issues.push("List the documents you hold for the property.");
   if (!input.whereKept?.trim()) issues.push("Say where the original documents are kept.");
   if (!input.recordDate) issues.push("Enter the record date.");
+  if (input.documentsHeld && mentionsWill(input.documentsHeld) && !input.hasWill) {
+    issues.push('You listed a will under "Documents you hold", but answered No to "Has a will been made?". Change one of them before you record.');
+  }
+  const witness = input.witnessWallet?.trim();
+  if (input.witnessWallet !== undefined) {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(witness ?? "")) issues.push("The witness wallet address must be a valid 0x address.");
+    else if ((witness ?? "").toLowerCase() === (input.registrantWallet ?? "").toLowerCase()) issues.push("The witness needs a different wallet from the person registering.");
+  }
   return issues;
 }
 
 /** Deterministic text. Only its hash goes on-chain; keep the text itself somewhere safe. */
 export function buildPropertyRecord(input: PropertyRecordInput): string {
   const will = input.hasWill
-    ? `Yes.${input.willSummary.trim() ? ` Summary: ${input.willSummary.trim()}` : ""}`
+    ? `Yes.${input.willSummary.trim() ? ` Summary: ${oneLine(input.willSummary)}` : ""}`
     : "No will has been made.";
   return `PROPERTY RECORD
 
 Prepared with CourtAgent. The text of this record is kept privately; only its hash is registered in a CourtAgent document registry (a smart contract on the Ethereum Sepolia test network, or its Demo Mode copy in a browser).
 
-Registered by: ${input.registrantName.trim()} (wallet ${input.registrantWallet})
-Date of record: ${input.recordDate}
+Registered by: ${oneLine(input.registrantName)} (wallet ${input.registrantWallet})
+${input.witnessWallet?.trim() ? `Witness, who must also sign: wallet ${input.witnessWallet.trim()}\n` : ""}Date of record: ${input.recordDate}
 
-Property: ${input.propertyDescription.trim()}
-Documents held: ${input.documentsHeld.trim()}
-Original documents kept at: ${input.whereKept.trim()}
+Property: ${oneLine(input.propertyDescription)}
+Documents held: ${oneLine(input.documentsHeld)}
+Original documents kept at: ${oneLine(input.whereKept)}
 Will: ${will}
 
 Anyone holding a copy of this exact text can hash it and check it against the on-chain record. If any word is changed, the hash will no longer match. This record shows what was declared on the date above. It does not by itself prove ownership.

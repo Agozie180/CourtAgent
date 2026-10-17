@@ -20,11 +20,16 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const TIMEOUT_MS = 25_000;
 
+/** A key as typed into a dashboard: trimmed, and without the quotes people sometimes paste around it. */
+export function readKey(value: string | undefined): string {
+  return (value ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
 export function availableProviders(env: Env = process.env): Exclude<ProviderName, "offline">[] {
-  const setting = (env.AI_PROVIDER || "auto").toLowerCase();
+  const setting = (env.AI_PROVIDER || "auto").trim().toLowerCase();
   if (setting === "offline") return [];
-  const hasAnthropic = Boolean(env.ANTHROPIC_API_KEY?.trim());
-  const hasOpenAI = Boolean(env.OPENAI_API_KEY?.trim());
+  const hasAnthropic = readKey(env.ANTHROPIC_API_KEY) !== "";
+  const hasOpenAI = readKey(env.OPENAI_API_KEY) !== "";
   if (setting === "anthropic") return hasAnthropic ? ["anthropic"] : [];
   if (setting === "openai") return hasOpenAI ? ["openai"] : [];
   // auto: prefer Anthropic, fall back to OpenAI
@@ -36,6 +41,29 @@ export function availableProviders(env: Env = process.env): Exclude<ProviderName
 
 export function activeProvider(env: Env = process.env): ProviderName {
   return availableProviders(env)[0] ?? "offline";
+}
+
+/** Names of environment variables that look like an AI key but are not the ones CourtAgent reads. Names only, never values. */
+export function misnamedKeyVariables(env: Env = process.env): string[] {
+  const read = new Set(["ANTHROPIC_API_KEY", "OPENAI_API_KEY"]);
+  return Object.keys(env)
+    .filter((name) => !read.has(name) && /^(next_public_)?(anthropic|openai|claude)(_[a-z0-9]+)*_(api_)?key$/i.test(name) && readKey(env[name]) !== "")
+    .sort();
+}
+
+export type AiStatus = {
+  /** The provider that will be tried first, or "offline". */
+  provider: ProviderName;
+  /** Why it is offline, when it is. */
+  reason: "ok" | "disabled" | "no-key";
+  /** Variables that look like keys but have a name that is not read (a typo, or NEXT_PUBLIC_ which would expose a key). */
+  misnamed: string[];
+};
+
+export function aiStatus(env: Env = process.env): AiStatus {
+  const provider = activeProvider(env);
+  const disabled = (env.AI_PROVIDER || "auto").trim().toLowerCase() === "offline";
+  return { provider, reason: provider !== "offline" ? "ok" : disabled ? "disabled" : "no-key", misnamed: misnamedKeyVariables(env) };
 }
 
 async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -55,7 +83,7 @@ async function callAnthropic(req: CompletionRequest, env: Env, fetchImpl: FetchL
       signal,
       headers: {
         "content-type": "application/json",
-        "x-api-key": env.ANTHROPIC_API_KEY as string,
+        "x-api-key": readKey(env.ANTHROPIC_API_KEY),
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -80,7 +108,7 @@ async function callOpenAI(req: CompletionRequest, env: Env, fetchImpl: FetchLike
       signal,
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${env.OPENAI_API_KEY}`,
+        authorization: `Bearer ${readKey(env.OPENAI_API_KEY)}`,
       },
       body: JSON.stringify({
         model: env.OPENAI_MODEL || "gpt-4.1-mini",
@@ -104,14 +132,17 @@ export async function complete(
   req: CompletionRequest,
   env: Env = process.env,
   fetchImpl: FetchLike = fetch,
+  errors?: string[],
 ): Promise<CompletionResult | null> {
   for (const provider of availableProviders(env)) {
     try {
       const text =
         provider === "anthropic" ? await callAnthropic(req, env, fetchImpl) : await callOpenAI(req, env, fetchImpl);
       return { provider, text };
-    } catch {
+    } catch (error) {
       // Try the next provider. Never log request bodies: they can contain private documents.
+      // The message holds a status code only, never a key, so it is safe to show.
+      errors?.push(error instanceof Error ? error.message : "The AI request failed");
     }
   }
   return null;
@@ -135,8 +166,9 @@ export async function completeJson(
   req: CompletionRequest,
   env: Env = process.env,
   fetchImpl: FetchLike = fetch,
+  errors?: string[],
 ): Promise<{ provider: Exclude<ProviderName, "offline">; data: unknown } | null> {
-  const result = await complete(req, env, fetchImpl);
+  const result = await complete(req, env, fetchImpl, errors);
   if (!result) return null;
   const data = extractJson(result.text);
   return data === null ? null : { provider: result.provider, data };

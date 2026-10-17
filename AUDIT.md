@@ -22,6 +22,12 @@ before the fix**. Checked on 2026-10-14.
 | F-12 | A line break in a name or address could add a fake clause to the agreement. | Medium | Free text is collapsed to one line. | `lib/domain/domain.test.ts` |
 | F-13 | "2 bedroom for 1.5m" read the rent as 2. | Low | Amounts with a unit win, else the largest number. | `lib/domain/domain.test.ts` |
 | F-14 | No security headers, no body-size pre-check, no error or 404 page, no icon. | Low | CSP, frame, referrer and permissions headers; content-length check; pages added. | `next.config.ts`, `lib/api/guard.ts`, `app/` |
+| F-15 | The live app said "No AI key is set" before any AI call was made, and also when a key existed but the AI request failed. | Medium | The page asks `/api/status` and every note, including the home page copy, follows the real mode. A failing AI call is reported as "key set, request failed". | `components/flows.test.tsx`, `lib/domain/fixes.test.ts` |
+| F-16 | A chat answer such as "I want a house in Abuja for 5k" was taken as a landlord's name, and any place named in a message could change the state. | High | Name checks, the state is set only by the state question, and after the early questions only the asked field can change. Every answer has an Edit button. | `lib/domain/fixes.test.ts` |
+| F-17 | A signed agreement or record could be edited without any sign that it was now a different record. | Medium | Forms lock once signed. "Edit anyway" says "Editing will create a new unsigned record". | `components/flows.test.tsx` |
+| F-18 | FULLY SIGNED was possible with one signer, and nobody was asked who must sign. | Medium | A "Who must sign?" choice adds a witness to the text and the registry. FULLY SIGNED shows only when all have signed. | `components/flows.test.tsx` |
+| F-19 | Ukeje v Ukeje was worded so it could read as support for a widow's right to stay. Legal-aid lines named bodies for the wrong state. | High | Ukeje is described as a daughter-inheritance case. Legal aid is chosen by state, with official links only and no phone numbers. | `lib/domain/fixes.test.ts` |
+| F-20 | A will listed under Documents with "No will" selected could be recorded. A demand could be dated before the tenancy began. | Medium | Both are blocked with a clear message. | `lib/domain/fixes.test.ts`, `components/flows.test.tsx` |
 
 ## What the audit did not fix, stated plainly
 
@@ -42,6 +48,6 @@ before the fix**. Checked on 2026-10-14.
 ## How to re-run the audit
 
 ```bash
-npm run check      # typecheck, lint, 82 unit, UI and API tests, 11 contract tests
+npm run check      # typecheck, lint, 108 unit, UI, flow and API tests, 11 contract tests
 npm run measure    # corpus, held-out and tamper-sweep numbers
 ```

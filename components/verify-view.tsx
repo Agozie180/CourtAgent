@@ -89,6 +89,8 @@ export function VerifyView() {
         />
       </div>
 
+      {!text.trim() && !typedHash ? <Notice tone="info">Paste the document text to check it.</Notice> : null}
+
       {!text.trim() ? (
         <div className="field">
           <label htmlFor="verify-hash">

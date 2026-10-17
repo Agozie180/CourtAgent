@@ -8,13 +8,13 @@ import { useOrigin, useRegistryRecord, useSavedDocuments, useToday } from "@/lib
 import { buildVerifyPath } from "@/lib/share";
 import { hashDocument } from "@/lib/hash/document";
 import type { TxResult } from "@/lib/chain/types";
-import { DEMO_OWNER } from "@/lib/chain/demo";
+import { DEMO_OWNER, DEMO_WITNESS } from "@/lib/chain/demo";
 import { NIGERIAN_STATES, stateLabel } from "@/lib/domain/jurisdiction";
 import { buildWidowLetter, type MarriageType } from "@/lib/domain/letters";
 import { buildPropertyRecord, validatePropertyRecord, type PropertyRecordInput } from "@/lib/domain/property";
-import { CopyButton, DocumentSheet, HashLine, Notice, TxLine, errorMessage } from "./bits";
+import { CopyButton, DocumentSheet, HashLine, IssueList, Notice, StateBanner, TxLine, errorMessage } from "./bits";
 import { RecordStatus } from "./record-status";
-import { useSession } from "./session-provider";
+import { DEMO_ACTORS, useSession } from "./session-provider";
 
 const emptyRecord = (): PropertyRecordInput => ({
   registrantName: "",
@@ -25,6 +25,7 @@ const emptyRecord = (): PropertyRecordInput => ({
   hasWill: false,
   willSummary: "",
   recordDate: "",
+  witnessWallet: undefined,
 });
 
 export function WidowFlow() {
@@ -40,10 +41,19 @@ export function WidowFlow() {
   // What the user typed. The wallet and the default dates are derived below, so no effect has to copy them in.
   const [draft, setDraft] = useState<PropertyRecordInput>(emptyRecord());
   const registrantWallet = session.mode === "demo" ? DEMO_OWNER : (session.walletAccount ?? "");
+  const [needWitness, setNeedWitness] = useState(false);
+  const [witnessInput, setWitnessInput] = useState("");
+  const witnessWallet = session.mode === "demo" ? witnessInput || DEMO_WITNESS : witnessInput;
   const form = useMemo<PropertyRecordInput>(
-    () => ({ ...draft, registrantWallet, recordDate: draft.recordDate || today }),
-    [draft, registrantWallet, today],
+    () => ({
+      ...draft,
+      registrantWallet,
+      recordDate: draft.recordDate || today,
+      witnessWallet: needWitness ? witnessWallet.trim() : undefined,
+    }),
+    [draft, registrantWallet, today, needWitness, witnessWallet],
   );
+  const [unlockedHash, setUnlockedHash] = useState<string | null>(null);
 
   const [txs, setTxs] = useState<TxResult[]>([]);
   const [busy, setBusy] = useState(false);
@@ -67,6 +77,18 @@ export function WidowFlow() {
 
   const account = session.account;
   const isRegistrant = account !== null && form.registrantWallet.toLowerCase() === account.toLowerCase();
+  const isWitness = account !== null && !!form.witnessWallet && form.witnessWallet.toLowerCase() === account.toLowerCase();
+
+  // Only the person registering can edit. In Demo Mode, anyone acting as someone else (a witness, or a stranger) can only read.
+  const readOnly = session.mode === "demo" && session.demoActor !== "owner";
+  // Once anyone has signed, the record is locked. Editing makes a new, unsigned record.
+  const signedAny = record?.signed.some(Boolean) ?? false;
+  const locked = signedAny && unlockedHash !== hash;
+  const changedAfterSigning = unlockedHash !== null && hash !== unlockedHash;
+  function unlockForEditing() {
+    setUnlockedHash(hash);
+    setTxs([]);
+  }
 
   function update<K extends keyof PropertyRecordInput>(key: K, value: PropertyRecordInput[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -79,7 +101,12 @@ export function WidowFlow() {
     try {
       const done: TxResult[] = [];
       if (!(await session.registry.getRecord(hash))) {
-        done.push(await session.registry.register(hash, "PROPERTY_RECORD", [form.registrantWallet as Address]));
+        done.push(
+          await session.registry.register(hash, "PROPERTY_RECORD", [
+            form.registrantWallet as Address,
+            ...(form.witnessWallet ? [form.witnessWallet as Address] : []),
+          ]),
+        );
       }
       done.push(await session.registry.sign(hash));
       setTxs((list) => [...list, ...done]);
@@ -91,6 +118,21 @@ export function WidowFlow() {
         source: session.registry.source,
         record: form,
       });
+      refreshRecord();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signAsWitness() {
+    if (!hash) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const tx = await session.registry.sign(hash);
+      setTxs((list) => [...list, tx]);
       refreshRecord();
     } catch (err) {
       setError(errorMessage(err));
@@ -130,6 +172,7 @@ export function WidowFlow() {
           <select
             id="saved-record"
             defaultValue=""
+            disabled={readOnly || locked}
             onChange={(event) => {
               const chosen = saved.find((doc) => doc.hash === event.target.value);
               if (chosen) setDraft({ ...chosen.record });
@@ -151,6 +194,27 @@ export function WidowFlow() {
           Write what the property is and which documents you hold. Only a fingerprint of this record goes on the
           blockchain. Keep the text itself somewhere safe, and give a trusted person a copy.
         </p>
+        {readOnly ? (
+          <Notice tone="warn">
+            You are viewing as {DEMO_ACTORS[session.demoActor].label}. Only the person registering can edit this record, so the form is read-only. Set Acting as to
+            Property owner or widow to edit.
+          </Notice>
+        ) : null}
+        {!readOnly && locked ? (
+          <Notice tone="warn">
+            This record has been signed, so it is locked.{" "}
+            <button type="button" className="link-button" onClick={unlockForEditing}>
+              Edit anyway
+            </button>
+          </Notice>
+        ) : null}
+        {!readOnly && signedAny && !locked && unlockedHash === hash ? (
+          <Notice tone="warn">Editing will create a new unsigned record. The signed record stays on the registry and is not deleted.</Notice>
+        ) : null}
+        {changedAfterSigning ? (
+          <Notice tone="warn">You changed a signed record, so this is a new unsigned record. The earlier signed record is unchanged on the registry.</Notice>
+        ) : null}
+        <fieldset className="bare" disabled={readOnly || locked}>
         <div className="field-grid">
           <div className="field">
             <label htmlFor="registrant">Name of the person registering</label>
@@ -196,17 +260,35 @@ export function WidowFlow() {
           </div>
         ) : null}
 
-        {issues.length > 0 ? <Notice tone="warn">{issues.join(" ")}</Notice> : null}
+        <div className="field">
+          <label htmlFor="signers-w">Who must sign this record?</label>
+          <select id="signers-w" value={needWitness ? "two" : "one"} onChange={(event) => setNeedWitness(event.target.value === "two")}>
+            <option value="one">Only me (the person registering)</option>
+            <option value="two">Me and a witness, lawyer or family member</option>
+          </select>
+        </div>
+        {needWitness ? (
+          <div className="field">
+            <label htmlFor="witness-w">
+              Wallet address of the second signer{" "}
+              <span className="hint">{session.mode === "demo" ? "Prefilled with the practice witness. Set Acting as to Witness to sign." : "They sign with their own wallet."}</span>
+            </label>
+            <input id="witness-w" type="text" value={witnessWallet} onChange={(event) => setWitnessInput(event.target.value)} placeholder="0x…" spellCheck={false} />
+          </div>
+        ) : null}
+        </fieldset>
+
+        <IssueList items={issues} />
 
         {text ? (
           <>
             <DocumentSheet title="Property record" text={text} />
             <HashLine hash={hash as string} />
             {record ? (
-              <RecordStatus record={record} account={account} busy={busy} />
+              <RecordStatus record={record} account={account} busy={busy} onSign={isWitness ? () => void signAsWitness() : undefined} />
             ) : (
               <div className="button-row">
-                <button type="button" className="button yellow" disabled={busy || !isRegistrant} onClick={() => void registerAndSign()}>
+                <button type="button" className="button yellow" disabled={busy || !isRegistrant || readOnly} onClick={() => void registerAndSign()}>
                   {busy ? "Waiting…" : "Record and sign"}
                 </button>
               </div>
@@ -245,6 +327,7 @@ export function WidowFlow() {
               This writes a notice you can give to the family. It is not a court order. Please speak to a lawyer, or to a
               legal aid office, as soon as you can.
             </p>
+            <fieldset className="bare" disabled={readOnly}>
             <div className="field-grid">
               <div className="field">
                 <label htmlFor="widow-name">Your name</label>
@@ -290,6 +373,8 @@ export function WidowFlow() {
                 <button type="button" aria-pressed={!hasDaughters} onClick={() => setHasDaughters(false)}>No</button>
               </div>
             </div>
+            </fieldset>
+            <StateBanner state={state} />
             {letter ? (
               <>
                 <DocumentSheet title="Notice to the family" text={letter.letter} />

@@ -51,7 +51,7 @@ export function SiteHeader() {
                 value={session.demoActor}
                 onChange={(event) => session.setDemoActor(event.target.value as DemoActor)}
               >
-                {(Object.keys(DEMO_ACTORS) as DemoActor[]).map((key) => (
+                {session.actors.map((key) => (
                   <option key={key} value={key}>
                     {DEMO_ACTORS[key].label}
                   </option>

@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { AiText } from "@/components/ai-text";
 import { TamperDemo, ScamDemo } from "@/components/home-demos";
 import { NIGERIAN_STATES } from "@/lib/domain/jurisdiction";
 import { STATE_RULES } from "@/lib/domain/tenancy-rules";
+
+// The repository link is shown only once the repository is public (set NEXT_PUBLIC_REPO_PUBLIC=true).
+const REPO_PUBLIC = process.env.NEXT_PUBLIC_REPO_PUBLIC === "true";
 
 export default function Home() {
   return (
@@ -11,8 +15,12 @@ export default function Home() {
           <div>
             <h1>Check the landlord. Sign the agreement. Keep the proof.</h1>
             <p className="lead">
-              AI explains and flags. Fixed rules decide. A fingerprint on Ethereum proves nothing was changed. Built for
-              Nigerian tenants and for widows who may be pushed out of the family home.
+              <AiText
+                on="AI explains and flags. Fixed rules decide."
+                off="Fixed rules decide. An AI mode switches on when a key is set on the server."
+              />{" "}
+              A fingerprint on Ethereum proves nothing was changed. Built for Nigerian tenants and for widows who may be
+              pushed out of the family home.
             </p>
             <div className="button-row">
               <Link className="button yellow" href="/rent">
@@ -29,9 +37,11 @@ export default function Home() {
               <span>
                 <strong>{NIGERIAN_STATES.length} places</strong> covered, <strong>{Object.keys(STATE_RULES).length} legally verified</strong> (Lagos)
               </span>
-              <span>
-                <Link href="https://github.com/Agozie180/CourtAgent">Open source, MIT</Link>
-              </span>
+              {REPO_PUBLIC ? (
+                <span>
+                  <Link href="https://github.com/Agozie180/CourtAgent">Open source, MIT</Link>
+                </span>
+              ) : null}
             </p>
           </div>
           <div id="try-tamper">
@@ -52,8 +62,18 @@ export default function Home() {
             <div>
               <h3>Three promises, each one tested</h3>
               <ul className="explain-list">
-                <li>The AI never writes or edits the legal terms. The agreement is a fixed template.</li>
-                <li>The AI can add a warning but can never make a check High risk. Only the fixed rules can.</li>
+                <li>
+                  <AiText
+                    on="The AI never writes or edits the legal terms. The agreement is a fixed template."
+                    off="No AI writes the legal terms. The agreement is a fixed template, with or without AI."
+                  />
+                </li>
+                <li>
+                  <AiText
+                    on="The AI can add a warning but can never make a check High risk. Only the fixed rules can."
+                    off="Only the fixed rules can make a check High risk. If AI is switched on, it can add a warning but never a High rating."
+                  />
+                </li>
                 <li>One changed word gives a different fingerprint, so a record cannot be quietly rewritten.</li>
               </ul>
               <p className="hint">The proof is in the test files, listed in the README.</p>
@@ -81,7 +101,12 @@ export default function Home() {
             <li>
               <div>
                 <h3>Get a plain agreement</h3>
-                <p>The terms are fixed by a template, so the wording never changes between drafts. The AI only explains it in simple English.</p>
+                <p>
+                  <AiText
+                    on="The terms are fixed by a template, so the wording never changes between drafts. The AI only explains it in simple English."
+                    off="The terms are fixed by a template, so the wording never changes between drafts. A built-in explainer gives the plain-English points."
+                  />
+                </p>
               </div>
             </li>
             <li>
@@ -110,7 +135,7 @@ export default function Home() {
             </p>
             <p>
               Register the property and the documents you hold. If relatives come, CourtAgent writes a calm notice that
-              cites the record and the court rulings that protect a widow, and tells you where to find legal aid.
+              cites the record and says that your rights depend on the marriage and the state. It also lists legal aid bodies that fit the state.
             </p>
             <Link className="button ghost" href="/widow">
               Record a family property
@@ -150,7 +175,9 @@ export default function Home() {
                 <td>Give the legal rules for other states until they are researched. It says so when it has not checked.</td>
               </tr>
               <tr>
-                <td>Let the AI explain and flag</td>
+                <td>
+                  <AiText on="Let the AI explain and flag" off="Explain and flag with the built-in rules (AI is off until a key is set)" />
+                </td>
                 <td>Let the AI write or change the terms of an agreement</td>
               </tr>
               <tr>

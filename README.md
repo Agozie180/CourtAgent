@@ -153,7 +153,10 @@ npm run measure    # prints the corpus and tamper-sweep numbers quoted above
 ### Optional: AI keys
 
 Copy `.env.example` to `.env.local` and add `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`. Without keys CourtAgent uses its
-offline rules engine.
+offline rules engine. The keys are read on the server only, so never give them a `NEXT_PUBLIC_` prefix. On Vercel, add
+them under Settings, Environment Variables, then **redeploy** (a running deployment does not see new variables). The page
+says which mode it is really in; open `/api/status` to see it, including a hint if a key is stored under a name that is
+not read. Set `NEXT_PUBLIC_REPO_PUBLIC=true` to show the "Open source" link once the repo is public.
 
 ### Optional: live on Ethereum Sepolia
 

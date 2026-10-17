@@ -2,8 +2,11 @@ import { completeJson } from "./provider";
 import type { ProviderName } from "./provider";
 import {
   INTAKE_ORDER,
+  answerProblem,
   mergeFields,
   nextMissing,
+  overBudgetWarning,
+  restrictToExpected,
   parseIntakeOffline,
   questionFor,
   sanitizeFields,
@@ -14,6 +17,7 @@ import { runCheck, type CheckInput, type CheckResult, type RiskFlag } from "@/li
 import type { TenancyTerms } from "@/lib/domain/agreement";
 import { endDate, noticeText } from "@/lib/domain/agreement";
 import { formatNgn } from "@/lib/domain/intake";
+import { plural } from "@/lib/domain/text";
 import { TENANCY_TYPE_LABEL } from "@/lib/domain/lagos-tenancy";
 import { checkAdvanceRentFor } from "@/lib/domain/tenancy-rules";
 
@@ -32,6 +36,10 @@ export type IntakeResult = {
   next: IntakeKey | null;
   reply: string;
   provider: ProviderName;
+  /** True when the answer to the question just asked was accepted (so an edited answer can finish editing). */
+  accepted: boolean;
+  /** Set when an AI key exists but every AI request failed, so the UI can say so instead of "no key". */
+  aiError?: string;
 };
 
 export async function runIntake(
@@ -44,6 +52,7 @@ export async function runIntake(
   let update: Partial<IntakeFields> = parseIntakeOffline(message, expected);
   let provider: ProviderName = "offline";
 
+  const errors: string[] = [];
   const ai = await completeJson(
     {
       system: `You extract rental details from a Nigerian tenant's chat message. ${UNTRUSTED_RULE}
@@ -58,31 +67,38 @@ Convert "1.2m" or "1.2 million" to 1200000. A self-contain is 1 bedroom. One yea
     },
     env,
     fetchImpl,
+    errors,
   );
   if (ai) {
     update = { ...update, ...sanitizeFields(ai.data) };
     provider = ai.provider;
   }
+  // Whoever extracted it, only the answer to the question just asked (plus early bonus details) may change a field.
+  update = restrictToExpected(update, current, expected);
 
   const fields = mergeFields(current, update);
   const next = nextMissing(fields);
   const gotSomething = INTAKE_ORDER.some((key) => fields[key] !== current[key]);
+  const budget = expected === "annualRentNgn" && fields.annualRentNgn !== current.annualRentNgn ? overBudgetWarning(fields) : null;
   let reply: string;
   if (next === null) {
     reply = "That is everything I need. Review the details on the right, then continue to the document check.";
   } else if (!gotSomething && expected !== null) {
-    reply = `I did not catch that. ${questionFor(expected)}`;
+    const why = answerProblem(expected, message) ?? "I did not catch that.";
+    reply = `${why} ${questionFor(expected)}`;
   } else {
     reply = questionFor(next);
   }
-  return { fields, next, reply, provider };
+  if (budget) reply = `Note: ${budget} ${reply}`;
+  const accepted = expected !== null && update[expected] !== undefined && update[expected] !== null;
+  return { fields, next, reply, provider, accepted, ...(errors.length && provider === "offline" ? { aiError: errors[0] } : {}) };
 }
 
 // ---------------------------------------------------------------------------------------------
 // 2. Document check: rules first, then optional AI observations
 // ---------------------------------------------------------------------------------------------
 
-export type CheckOutcome = CheckResult & { provider: ProviderName };
+export type CheckOutcome = CheckResult & { provider: ProviderName; aiError?: string };
 
 export async function runDocumentCheck(
   input: CheckInput,
@@ -91,6 +107,7 @@ export async function runDocumentCheck(
 ): Promise<CheckOutcome> {
   let extra: RiskFlag[] = [];
   let provider: ProviderName = "offline";
+  const errors: string[] = [];
 
   if (input.documentText.trim().length > 0) {
     const ai = await completeJson(
@@ -105,13 +122,14 @@ Return at most 4 flags. Return {"flags":[]} if you see nothing concerning.`,
       },
       env,
       fetchImpl,
+      errors,
     );
     if (ai) {
       provider = ai.provider;
       extra = sanitizeAiFlags(ai.data);
     }
   }
-  return { ...runCheck(input, extra), provider };
+  return { ...runCheck(input, extra), provider, ...(errors.length && provider === "offline" ? { aiError: errors[0] } : {}) };
 }
 
 export function sanitizeAiFlags(data: unknown): RiskFlag[] {
@@ -138,13 +156,13 @@ export function sanitizeAiFlags(data: unknown): RiskFlag[] {
 // 3. Plain-language explanation of the agreement
 // ---------------------------------------------------------------------------------------------
 
-export type ExplainResult = { points: string[]; provider: ProviderName };
+export type ExplainResult = { points: string[]; provider: ProviderName; aiError?: string };
 
 export function explainOffline(terms: TenancyTerms): string[] {
   const monthly = terms.annualRentNgn / 12;
   const points = [
     `You rent a ${terms.bedrooms}-bedroom${terms.parlour ? " with parlour" : ""} at ${terms.propertyAddress} from ${terms.startDate} to ${endDate(terms.startDate, terms.durationMonths)}.`,
-    `Yearly rent is ${formatNgn(terms.annualRentNgn)}, about ${formatNgn(monthly)} a month. You pay ${terms.advanceMonths} months in advance, which is ${formatNgn(Math.round(monthly * terms.advanceMonths))}.`,
+    `Yearly rent is ${formatNgn(terms.annualRentNgn)}, about ${formatNgn(monthly)} a month. You pay ${plural(terms.advanceMonths, "month")} in advance, which is ${formatNgn(Math.round(monthly * terms.advanceMonths))}.`,
     terms.cautionNgn > 0
       ? `You also pay a refundable caution deposit of ${formatNgn(terms.cautionNgn)}.`
       : "There is no caution deposit.",
@@ -164,6 +182,7 @@ export async function explainAgreement(
   fetchImpl: FetchLike = fetch,
 ): Promise<ExplainResult> {
   const offline = explainOffline(terms);
+  const errors: string[] = [];
   const ai = await completeJson(
     {
       system: `You explain a tenancy agreement to an ordinary Nigerian tenant in simple English. ${UNTRUSTED_RULE}
@@ -173,10 +192,11 @@ Reply with ONLY JSON: {"points":["...", "..."]}. Give 5 to 7 short points: what 
     },
     env,
     fetchImpl,
+    errors,
   );
   const points = ai && Array.isArray((ai.data as { points?: unknown }).points)
     ? ((ai.data as { points: unknown[] }).points.filter((p): p is string => typeof p === "string" && p.trim().length > 4).map((p) => p.trim().slice(0, 300)).slice(0, 7))
     : [];
   if (ai && points.length >= 3) return { points, provider: ai.provider };
-  return { points: offline, provider: "offline" };
+  return { points: offline, provider: "offline", ...(errors.length ? { aiError: errors[0] } : {}) };
 }

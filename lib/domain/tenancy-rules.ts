@@ -6,7 +6,7 @@ import {
   type TenancyType,
 } from "./lagos-tenancy";
 import { stateLabel } from "./jurisdiction";
-import { oneLine } from "./text";
+import { oneLine, plural } from "./text";
 
 /**
  * Tenancy rules we have actually checked, by state. Only Lagos is verified so far.
@@ -69,13 +69,13 @@ export function checkAdvanceRentFor(state: string, advanceMonths: number): Advan
     return {
       ok: false,
       checked: true,
-      message: `Asking for ${advanceMonths} months of rent in advance is above the limit of ${rule.maxAdvanceMonthsNewTenant} months for a new tenant under the ${rule.lawName}. Do not pay it without getting advice.`,
+      message: `Asking for ${plural(advanceMonths, "month")} of rent in advance is above the limit of ${plural(rule.maxAdvanceMonthsNewTenant, "month")} for a new tenant under the ${rule.lawName}. Do not pay it without getting advice.`,
     };
   }
   return {
     ok: true,
     checked: true,
-    message: `${advanceMonths} months in advance is within the ${rule.maxAdvanceMonthsNewTenant}-month limit for a new tenant.`,
+    message: `${plural(advanceMonths, "month")} in advance is within the ${rule.maxAdvanceMonthsNewTenant}-month limit for a new tenant.`,
   };
 }
 

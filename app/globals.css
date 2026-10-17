@@ -207,3 +207,13 @@ mark { background: linear-gradient(transparent 12%, var(--yellow) 12%, var(--yel
 .try-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; margin-top: 24px; align-items: start; }
 .proof-strip { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 24px 0 0; padding: 12px 0 0; border-top: 1px solid var(--rule); font-size: 0.9rem; color: var(--ink-soft); }
 .proof-strip strong { color: var(--ink); }
+
+/* ---- fixes: fieldsets, edit buttons, long text at 390px ---- */
+fieldset.bare { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset.bare:disabled input, fieldset.bare:disabled textarea, fieldset.bare:disabled select { background: #eef0f3; color: #4a5160; cursor: not-allowed; }
+.link-button { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); text-decoration: underline; cursor: pointer; }
+.edit-answer { margin-left: 10px; background: none; border: 0; padding: 0; font: inherit; font-size: 0.82rem; color: inherit; text-decoration: underline; cursor: pointer; opacity: 0.85; }
+.edit-answer:disabled { opacity: 0.4; cursor: not-allowed; }
+.bubble.replaced { opacity: 0.55; text-decoration: line-through; }
+.issue-list { margin: 6px 0 0; padding-left: 20px; }
+.bubble, .notice, .facts li, .explain-list li, .flag-list li { overflow-wrap: anywhere; }

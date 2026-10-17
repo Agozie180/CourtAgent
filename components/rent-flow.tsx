@@ -8,23 +8,28 @@ import { useOrigin, useRegistryRecord, useToday } from "@/lib/hooks";
 import { buildVerifyPath } from "@/lib/share";
 import { hashDocument } from "@/lib/hash/document";
 import type { TxResult } from "@/lib/chain/types";
-import { DEMO_LANDLORD, DEMO_TENANT } from "@/lib/chain/demo";
+import { DEMO_LANDLORD, DEMO_TENANT, DEMO_WITNESS } from "@/lib/chain/demo";
 import { buildAgreement, validateTerms, type TenancyTerms } from "@/lib/domain/agreement";
 import {
   describeFields,
   emptyIntake,
   formatNgn,
+  fieldLabel,
   isComplete,
+  missingFields,
   nextMissing,
+  overBudgetWarning,
   questionFor,
   type IntakeFields,
   type IntakeKey,
 } from "@/lib/domain/intake";
 import { stateLabel } from "@/lib/domain/jurisdiction";
-import { buildExitResponseLetter } from "@/lib/domain/letters";
+import { buildExitResponseLetter, exitLetterDateIssues } from "@/lib/domain/letters";
+import { plural } from "@/lib/domain/text";
 import type { RiskFlag, RiskLevel } from "@/lib/domain/risk";
-import { ruleFor, unverifiedNote } from "@/lib/domain/tenancy-rules";
-import { CopyButton, DocumentSheet, HashLine, Notice, TxLine, errorMessage } from "./bits";
+import { ruleFor } from "@/lib/domain/tenancy-rules";
+import { useModeNote } from "./ai-text";
+import { CopyButton, DocumentSheet, HashLine, IssueList, Notice, StateBanner, TxLine, errorMessage } from "./bits";
 import { RecordStatus } from "./record-status";
 import { useSession } from "./session-provider";
 
@@ -37,10 +42,10 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "after", label: "If the landlord pushes" },
 ];
 
-type Message = { role: "agent" | "you"; text: string };
-type IntakeResponse = { fields: IntakeFields; next: IntakeKey | null; reply: string; provider: string };
-type CheckResponse = { level: RiskLevel; score: number; flags: RiskFlag[]; reminder: string; provider: string };
-type ExplainResponse = { points: string[]; provider: string };
+type Message = { role: "agent" | "you"; text: string; key?: IntakeKey; replaced?: boolean };
+type IntakeResponse = { fields: IntakeFields; next: IntakeKey | null; reply: string; provider: string; accepted: boolean; aiError?: string };
+type CheckResponse = { level: RiskLevel; score: number; flags: RiskFlag[]; reminder: string; provider: string; aiError?: string };
+type ExplainResponse = { points: string[]; provider: string; aiError?: string };
 
 const ANSWER_QUESTIONS = {
   inspectedInPerson: "Have you visited and inspected the property yourself?",
@@ -54,12 +59,6 @@ const ANSWER_QUESTIONS = {
 type AnswerKey = keyof typeof ANSWER_QUESTIONS;
 
 
-function providerNote(provider: string): string {
-  return provider === "offline"
-    ? "Built-in rules only. No AI key is set, and everything still works."
-    : `Rules plus notes from ${provider === "anthropic" ? "Anthropic" : "OpenAI"}.`;
-}
-
 export function RentFlow() {
   const session = useSession();
   const [step, setStep] = useState<Step>("details");
@@ -69,7 +68,9 @@ export function RentFlow() {
   const [messages, setMessages] = useState<Message[]>([{ role: "agent", text: questionFor("state") }]);
   const [input, setInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
-  const [intakeProvider, setIntakeProvider] = useState("offline");
+  const [intakeProvider, setIntakeProvider] = useState<string | null>(null);
+  const [intakeAiError, setIntakeAiError] = useState<string | undefined>();
+  const [editing, setEditing] = useState<IntakeKey | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   // Step 2
@@ -87,6 +88,9 @@ export function RentFlow() {
   const [explain, setExplain] = useState<ExplainResponse | null>(null);
   const [explainBusy, setExplainBusy] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [needWitness, setNeedWitness] = useState(false);
+  const [witnessWallet, setWitnessWallet] = useState("");
+  const [unlockedHash, setUnlockedHash] = useState<string | null>(null);
 
   // Step 4
   const [txs, setTxs] = useState<TxResult[]>([]);
@@ -111,6 +115,7 @@ export function RentFlow() {
     if (session.mode === "demo") {
       setTenantWallet(DEMO_TENANT);
       setLandlordWallet(DEMO_LANDLORD);
+      setWitnessWallet((current) => current || DEMO_WITNESS);
     } else {
       setTenantWallet(session.walletAccount ?? "");
       setLandlordWallet("");
@@ -142,14 +147,24 @@ export function RentFlow() {
       startDate: f.startDate,
       durationMonths: f.durationMonths,
       agreedNotice: agreedNotice.trim() || undefined,
+      witnessWallet: needWitness ? witnessWallet.trim() : undefined,
     };
-  }, [fields, landlordWallet, tenantWallet, propertyAddress, agreedNotice]);
+  }, [fields, landlordWallet, tenantWallet, propertyAddress, agreedNotice, needWitness, witnessWallet]);
 
   const issues = useMemo(() => (terms ? validateTerms(terms) : []), [terms]);
   const agreementText = terms && issues.length === 0 ? buildAgreement(terms) : "";
   const hash = agreementText ? hashDocument(agreementText) : null;
 
   const { record, error: lookupError, refresh: refreshRecord } = useRegistryRecord(session.registry, hash);
+
+  // Once anyone has signed, the answers and the agreement are locked. Editing means making a new, unsigned record.
+  const signedAny = record?.signed.some(Boolean) ?? false;
+  const locked = signedAny && unlockedHash !== hash;
+  const changedAfterSigning = unlockedHash !== null && hash !== unlockedHash;
+  function unlockForEditing() {
+    setUnlockedHash(hash);
+    setTxs([]);
+  }
 
   const unlocked: Record<Step, boolean> = {
     details: true,
@@ -163,15 +178,23 @@ export function RentFlow() {
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || chatBusy) return;
+    if (!text || chatBusy || locked) return;
+    const expected = editing ?? nextMissing(fields);
     setInput("");
-    setMessages((list) => [...list, { role: "you", text }]);
+    setMessages((list) => [...list, { role: "you", text, key: expected ?? undefined }]);
     setChatBusy(true);
     try {
-      const result = await postJson<IntakeResponse>("/api/intake", { message: text, fields, expected: nextMissing(fields) });
+      const result = await postJson<IntakeResponse>("/api/intake", { message: text, fields, expected });
       setFields(result.fields);
       setIntakeProvider(result.provider);
+      setIntakeAiError(result.aiError);
       setMessages((list) => [...list, { role: "agent", text: result.reply }]);
+      if (editing && result.accepted) {
+        setEditing(null);
+        // The landlord check and the explanation were made from the old answers.
+        setCheck(null);
+        setExplain(null);
+      }
     } catch (error) {
       setMessages((list) => [...list, { role: "agent", text: `${errorMessage(error)} Send your answer again.` }]);
     } finally {
@@ -179,7 +202,30 @@ export function RentFlow() {
     }
   }
 
+  function editAnswer(index: number) {
+    const message = messages[index];
+    if (!message?.key || locked || chatBusy) return;
+    const key = message.key;
+    setEditing(key);
+    setInput(message.text);
+    setMessages((list) => [
+      ...list.map((item, position) => (position === index ? { ...item, replaced: true } : item)),
+      { role: "agent", text: `Change your answer. ${questionFor(key)}` },
+    ]);
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setInput("");
+    setMessages((list) => [...list, { role: "agent", text: "Edit cancelled. Your earlier answer is unchanged." }]);
+  }
+
   function startOver() {
+    setEditing(null);
+    setInput("");
+    setUnlockedHash(null);
+    setIntakeProvider(null);
+    setIntakeAiError(undefined);
     setFields(emptyIntake());
     setMessages([{ role: "agent", text: questionFor("state") }]);
     setCheck(null);
@@ -245,7 +291,7 @@ export function RentFlow() {
   const isParty =
     account !== null &&
     terms !== null &&
-    [terms.tenantWallet, terms.landlordWallet].some((wallet) => wallet.toLowerCase() === account.toLowerCase());
+    [terms.tenantWallet, terms.landlordWallet, ...(terms.witnessWallet ? [terms.witnessWallet] : [])].some((wallet) => wallet.toLowerCase() === account.toLowerCase());
   const alreadySigned =
     record !== null && account !== null
       ? record.parties.some((party, index) => party.toLowerCase() === account.toLowerCase() && record.signed[index])
@@ -260,7 +306,11 @@ export function RentFlow() {
       const existing = await session.registry.getRecord(hash);
       if (!existing) {
         done.push(
-          await session.registry.register(hash, "TENANCY_AGREEMENT", [terms.tenantWallet as Address, terms.landlordWallet as Address]),
+          await session.registry.register(hash, "TENANCY_AGREEMENT", [
+            terms.tenantWallet as Address,
+            terms.landlordWallet as Address,
+            ...(terms.witnessWallet ? [terms.witnessWallet as Address] : []),
+          ]),
         );
       }
       done.push(await session.registry.sign(hash));
@@ -299,8 +349,10 @@ export function RentFlow() {
   const shareUrl = agreementText && origin ? `${origin}${buildVerifyPath(agreementText)}` : "";
 
   // ---------------------------------------------------------------- step 5
+  const dateIssues = terms ? exitLetterDateIssues({ startDate: terms.startDate, demandDate, letterDate }) : [];
   const letter = useMemo(() => {
     if (!terms || !hash || !record || !demandSummary.trim() || !demandDate || !letterDate) return null;
+    if (exitLetterDateIssues({ startDate: terms.startDate, demandDate, letterDate }).length > 0) return null;
     return buildExitResponseLetter({
       state: terms.state,
       tenantName: terms.tenantName,
@@ -323,12 +375,15 @@ export function RentFlow() {
 
   // ---------------------------------------------------------------- render
   const factLines = describeFields(fields);
-  const overBudget =
-    fields.annualRentNgn !== null && fields.budgetNgn !== null && fields.annualRentNgn > fields.budgetNgn;
+  const budgetWarning = overBudgetWarning(fields);
   const stateRule = fields.state ? ruleFor(fields.state) : null;
+  const missing = missingFields(fields);
+  const intakeNote = useModeNote(intakeProvider, intakeAiError);
+  const checkNote = useModeNote(check?.provider ?? null, check?.aiError);
 
   return (
     <div>
+      <StateBanner state={fields.state} />
       <div className="flow-steps" role="list" aria-label="Steps">
         {STEPS.map((item, index) => {
           const reachable = unlocked[item.id];
@@ -355,8 +410,14 @@ export function RentFlow() {
             <div className="chat">
               <div className="chat-log" ref={logRef} aria-live="polite">
                 {messages.map((message, index) => (
-                  <div key={index} className={`bubble ${message.role}`}>
+                  <div key={index} className={`bubble ${message.role}${message.replaced ? " replaced" : ""}`}>
                     {message.text}
+                    {message.role === "you" && message.key && !message.replaced ? (
+                      <button type="button" className="edit-answer" disabled={locked || chatBusy} onClick={() => editAnswer(index)}>
+                        Edit
+                      </button>
+                    ) : null}
+                    {message.replaced ? <span className="hint"> (being changed)</span> : null}
                   </div>
                 ))}
               </div>
@@ -369,18 +430,40 @@ export function RentFlow() {
                   type="text"
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
-                  placeholder={isComplete(fields) ? "All set. Review the details." : "Type your answer"}
-                  disabled={chatBusy || isComplete(fields)}
+                  placeholder={editing ? "Type the new answer" : isComplete(fields) ? "All set. Review the details." : "Type your answer"}
+                  disabled={chatBusy || locked || (isComplete(fields) && !editing)}
                   autoComplete="off"
                 />
-                <button type="submit" className="button" disabled={chatBusy || !input.trim() || isComplete(fields)}>
-                  {chatBusy ? "Sending…" : "Send"}
+                <button type="submit" className="button" disabled={chatBusy || locked || !input.trim() || (isComplete(fields) && !editing)}>
+                  {chatBusy ? "Sending…" : editing ? "Save" : "Send"}
                 </button>
               </form>
             </div>
-            <p className="hint" style={{ marginTop: 8 }}>{providerNote(intakeProvider)}</p>
+            {editing ? (
+              <p className="hint" style={{ marginTop: 8 }}>
+                Changing: {fieldLabel(editing)}.{" "}
+                <button type="button" className="link-button" onClick={cancelEdit}>
+                  Cancel
+                </button>
+              </p>
+            ) : null}
+            {locked ? (
+              <Notice tone="warn">
+                This agreement has been signed, so your answers are locked.{" "}
+                <button type="button" className="link-button" onClick={unlockForEditing}>
+                  Edit anyway
+                </button>
+              </Notice>
+            ) : null}
+            {signedAny && !locked && unlockedHash === hash ? (
+              <Notice tone="warn">Editing will create a new unsigned record. The signed record stays on the registry and is not deleted.</Notice>
+            ) : null}
+            {changedAfterSigning ? (
+              <Notice tone="warn">You changed a signed agreement, so this is a new unsigned record. The earlier signed record is unchanged on the registry.</Notice>
+            ) : null}
+            <p className="hint" style={{ marginTop: 8 }}>{intakeNote}</p>
             <div className="button-row">
-              <button type="button" className="button yellow" disabled={!isComplete(fields)} onClick={() => setStep("check")}>
+              <button type="button" className="button yellow" disabled={!isComplete(fields) || editing !== null} onClick={() => setStep("check")}>
                 Continue to the landlord check
               </button>
               <button type="button" className="button ghost small" onClick={startOver}>
@@ -399,10 +482,10 @@ export function RentFlow() {
                 ))}
               </ul>
             )}
-            {overBudget ? (
-              <Notice tone="warn">The yearly rent is above the budget you gave. Decide if you can afford it before you go on.</Notice>
+            {missing.length > 0 && factLines.length > 0 ? (
+              <p className="hint">Still to answer: {missing.map(fieldLabel).join(", ")}.</p>
             ) : null}
-            {fields.state && !stateRule ? <Notice tone="warn">{unverifiedNote(fields.state)}</Notice> : null}
+            {budgetWarning ? <Notice tone="warn">{budgetWarning}</Notice> : null}
             {fields.state && stateRule ? (
               <p className="hint">Tenancy rules for {stateLabel(fields.state)} were checked on {stateRule.verifiedOn}.</p>
             ) : null}
@@ -438,6 +521,12 @@ export function RentFlow() {
               </div>
             ))}
           </div>
+          {!allAnswered ? (
+            <IssueList
+              title="Answer these to run the check"
+              items={requiredAnswers.filter((key) => typeof answers[key] !== "boolean").map((key) => ANSWER_QUESTIONS[key])}
+            />
+          ) : null}
           {checkError ? <Notice tone="error">{checkError}</Notice> : null}
           <div className="button-row">
             <button type="submit" className="button yellow" disabled={!allAnswered || checkBusy}>
@@ -454,7 +543,7 @@ export function RentFlow() {
                 <p style={{ margin: 0 }}>
                   {check.flags.length === 0
                     ? "No warning signs found in what you told me."
-                    : `${check.flags.length} warning ${check.flags.length === 1 ? "sign" : "signs"} found.`}
+                    : `${plural(check.flags.length, "warning sign")} found.`}
                 </p>
               </div>
               {check.flags.length > 0 ? (
@@ -470,7 +559,7 @@ export function RentFlow() {
                 <Notice tone="error">Do not pay anything yet. Fix the high-risk signs above, or walk away.</Notice>
               ) : null}
               <Notice>{check.reminder}</Notice>
-              <p className="hint">{providerNote(check.provider)}</p>
+              <p className="hint">{checkNote}</p>
               <div className="button-row">
                 <button type="button" className="button" onClick={() => setStep("agreement")}>
                   Continue to the agreement
@@ -488,6 +577,22 @@ export function RentFlow() {
             These terms come from your answers. Add the property address and the two wallet addresses, and the agreement
             is written for you. The wording is a fixed template. The AI never changes it.
           </p>
+          {budgetWarning ? <Notice tone="warn">{budgetWarning}</Notice> : null}
+          {locked ? (
+            <Notice tone="warn">
+              This agreement has been signed, so it is locked.{" "}
+              <button type="button" className="link-button" onClick={unlockForEditing}>
+                Edit anyway
+              </button>
+            </Notice>
+          ) : null}
+          {signedAny && !locked && unlockedHash === hash ? (
+            <Notice tone="warn">Editing will create a new unsigned record. The signed record stays on the registry and is not deleted.</Notice>
+          ) : null}
+          {changedAfterSigning ? (
+            <Notice tone="warn">You changed a signed agreement, so this is a new unsigned record.</Notice>
+          ) : null}
+          <fieldset className="bare" disabled={locked}>
           <div className="field-grid">
             <div className="field">
               <label htmlFor="address">Property address</label>
@@ -507,16 +612,29 @@ export function RentFlow() {
               <label htmlFor="landlord-wallet">Landlord wallet address</label>
               <input id="landlord-wallet" type="text" value={landlordWallet} onChange={(event) => setLandlordWallet(event.target.value)} placeholder="0x…" spellCheck={false} />
             </div>
+            <div className="field">
+              <label htmlFor="signers">Who must sign?</label>
+              <select id="signers" value={needWitness ? "three" : "two"} onChange={(event) => setNeedWitness(event.target.value === "three")}>
+                <option value="two">The tenant and the landlord</option>
+                <option value="three">The tenant, the landlord and a witness</option>
+              </select>
+            </div>
+            {needWitness ? (
+              <div className="field">
+                <label htmlFor="witness-wallet">
+                  Witness wallet address{" "}
+                  <span className="hint">{session.mode === "demo" ? "Prefilled with the practice witness. Set Acting as to Witness to sign." : "The witness signs with their own wallet."}</span>
+                </label>
+                <input id="witness-wallet" type="text" value={witnessWallet} onChange={(event) => setWitnessWallet(event.target.value)} placeholder="0x…" spellCheck={false} />
+              </div>
+            ) : null}
           </div>
+          </fieldset>
           {session.mode === "demo" ? (
             <p className="hint">Demo Mode fills in two practice wallets. Switch to Sepolia in the header to use real wallets.</p>
           ) : null}
 
-          {issues.length > 0 ? (
-            <Notice tone="warn">
-              {issues.map((issue) => issue.message).join(" ")}
-            </Notice>
-          ) : null}
+          <IssueList items={issues.map((issue) => issue.message)} />
 
           {agreementText ? (
             <>
@@ -540,7 +658,9 @@ export function RentFlow() {
                     ))}
                   </ul>
                   <p className="hint">
-                    {explain.provider === "offline" ? "Written from your terms by the built-in explainer." : `Explained by ${explain.provider === "anthropic" ? "Anthropic" : "OpenAI"}. The agreement text above is unchanged.`}
+                    {explain.provider === "offline"
+                      ? `Written from your terms by the built-in explainer.${explain.aiError ? ` An AI key is set, but the AI request failed (${explain.aiError}).` : ""}`
+                      : `Explained by ${explain.provider === "anthropic" ? "Anthropic" : "OpenAI"}. The agreement text above is unchanged.`}
                   </p>
                 </section>
               ) : null}
@@ -553,8 +673,9 @@ export function RentFlow() {
         <div>
           <h2>Record and sign</h2>
           <p>
-            Both parties sign the same fingerprint. The agreement text is not sent to the blockchain, only this
-            fingerprint.
+            {needWitness ? "The tenant, the landlord and the witness each sign the same fingerprint." : "Both parties sign the same fingerprint."} The
+            agreement is marked fully signed only when every one of them has signed. The agreement text is not sent to
+            the blockchain, only this fingerprint.
           </p>
           <HashLine hash={hash} />
 
@@ -618,7 +739,7 @@ export function RentFlow() {
           <div className="field-grid">
             <div className="field">
               <label htmlFor="demand-date">Date of the demand</label>
-              <input id="demand-date" type="date" value={demandDate} onChange={(event) => setDemandDateInput(event.target.value)} />
+              <input id="demand-date" type="date" min={terms.startDate} value={demandDate} onChange={(event) => setDemandDateInput(event.target.value)} />
             </div>
             <div className="field">
               <label htmlFor="letter-date">Date of your letter</label>
@@ -637,6 +758,7 @@ export function RentFlow() {
               maxLength={600}
             />
           </div>
+          {dateIssues.length > 0 ? <IssueList title="Check the dates" items={dateIssues} /> : null}
           {letter ? (
             <>
               <DocumentSheet title="Reply to landlord" text={letter.letter} />
@@ -648,9 +770,9 @@ export function RentFlow() {
               </ul>
               <p className="hint">The tenancy was for {formatNgn(terms.annualRentNgn)} a year. Keep every receipt.</p>
             </>
-          ) : (
+          ) : dateIssues.length === 0 ? (
             <Notice>Describe what the landlord said or did to see your letter.</Notice>
-          )}
+          ) : null}
         </div>
       ) : null}
     </div>

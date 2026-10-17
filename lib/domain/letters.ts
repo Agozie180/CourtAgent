@@ -2,6 +2,8 @@ import { endDate, noticeText } from "./agreement";
 import { formatNgn } from "./intake";
 import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
 import { stateLabel } from "./jurisdiction";
+import { legalAidNote } from "./legal-aid";
+import { plural } from "./text";
 import { evictionNoteFor } from "./tenancy-rules";
 
 export type RecordLocation = "sepolia" | "demo";
@@ -54,7 +56,7 @@ RE: MY TENANCY AT ${input.propertyAddress.toUpperCase()}: RESPONSE TO YOUR DEMAN
 
 Dear ${input.landlordName},
 
-1. We signed a tenancy agreement for the property above. It is a ${TENANCY_TYPE_LABEL[input.tenancyType]} that started on ${input.startDate} and runs to ${end}. I paid ${input.advanceMonths} months of rent in advance, which is ${formatNgn(advance)}. ${record}
+1. We signed a tenancy agreement for the property above. It is a ${TENANCY_TYPE_LABEL[input.tenancyType]} that started on ${input.startDate} and runs to ${end}. I paid ${plural(input.advanceMonths, "month")} of rent in advance, which is ${formatNgn(advance)}. ${record}
 
 2. On ${input.demandDate} you ${input.demandSummary.trim().replace(/[.]+$/, "")}. I did not agree to leave on that basis.
 
@@ -83,7 +85,7 @@ ${DISCLAIMER}`;
     "Keep your signed agreement, your rent receipts and proof of every payment together in one safe place.",
     "Do not leave the property or sign anything because of pressure or threats. Ask for any demand in writing.",
     "If you feel unsafe or the landlord uses force, contact the police and a lawyer straight away.",
-    "For free or low-cost legal help, you can contact the Legal Aid Council of Nigeria, FIDA Nigeria, or the Lagos State Office of the Public Defender. Check their current contact details first.",
+    legalAidNote(input.state),
     "The on-chain record supports your agreement; a court will mainly look at the signed agreement itself and your receipts. Have a lawyer check the letter before you send it.",
   ];
   return { letter, notes };
@@ -112,11 +114,11 @@ export type WidowLetterInput = {
 
 export function buildWidowLetter(input: WidowLetterInput): LetterResult {
   const legalLines: string[] = [
-    "Nigerian courts, including the Supreme Court, have recognised that a widow is entitled to remain in occupation of her late husband's property.",
+    "A widow's right to stay in her late husband's home, and her share of his estate, depend on the law that applies to the estate. I am taking legal advice on this and I ask that nothing is done to remove me until it is settled.",
   ];
   if (input.hasDaughters) {
     legalLines.push(
-      "The Supreme Court has also held, in Ukeje v Ukeje (2014), that a customary rule which stops a female child from inheriting from her father is void because it breaches the Constitution.",
+      "Separately, in Ukeje v Ukeje (2014) the Supreme Court held that a customary rule which stops a daughter from inheriting from her father is void because it discriminates against her under the Constitution. That case is about a daughter's right to inherit. It does not by itself decide who may live in the property.",
     );
   }
   if (input.marriageType === "statutory" && input.state === "Lagos") {
@@ -166,11 +168,23 @@ ${DISCLAIMER}`;
 
   const notes = [
     "Speak to a lawyer as soon as you can, ideally before sending this letter. The law depends on the kind of marriage, whether there is a will, and the state.",
-    "For free or low-cost help, you can contact the Legal Aid Council of Nigeria, FIDA Nigeria, or the Lagos State Office of the Public Defender. Check their current contact details first.",
+    legalAidNote(input.state),
     "Keep originals or copies of the marriage certificate, the property documents, receipts, any will and the death certificate in a safe place, and give a trusted person a copy.",
     "Do not sign any paper under pressure. Ask for every demand in writing.",
     "If you are threatened or in danger, contact the police and a trusted person right away.",
     "Probate (if there is a will) or letters of administration (if there is none) is obtained through the court. A lawyer can help you apply.",
   ];
   return { letter, notes };
+}
+
+/** A demand cannot come before the tenancy started, and a reply cannot be dated before the demand. */
+export function exitLetterDateIssues(input: { startDate: string; demandDate: string; letterDate: string }): string[] {
+  const issues: string[] = [];
+  if (input.demandDate && input.startDate && input.demandDate < input.startDate) {
+    issues.push(`The demand date (${input.demandDate}) is before the tenancy started on ${input.startDate}. Check the date.`);
+  }
+  if (input.demandDate && input.letterDate && input.letterDate < input.demandDate) {
+    issues.push("The date of your letter is before the date of the demand. Check the dates.");
+  }
+  return issues;
 }

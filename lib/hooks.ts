@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Hex } from "viem";
+import type { AiStatus } from "@/lib/ai/provider";
 import { localDateIso } from "@/lib/domain/dates";
 import type { RegistryBackend, RegistryRecord } from "@/lib/chain/types";
 import { parseDocuments, readDocumentsRaw, subscribeDocuments, type SavedDocument } from "@/lib/storage";
@@ -59,4 +60,46 @@ export function useRegistryRecord(registry: RegistryBackend, hash: Hex | null) {
     error: current?.error ?? null,
     refresh: () => setTick((value) => value + 1),
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Which AI mode the server is really in (read from /api/status once, then shared by every component).
+// ---------------------------------------------------------------------------------------------
+let aiStatusCache: AiStatus | null = null;
+let aiStatusRequested = false;
+const aiStatusListeners = new Set<() => void>();
+
+function loadAiStatus() {
+  if (aiStatusRequested || typeof window === "undefined") return;
+  aiStatusRequested = true;
+  fetch("/api/status", { cache: "no-store" })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((data: AiStatus | null) => {
+      if (data && typeof data.provider === "string") {
+        aiStatusCache = data;
+        aiStatusListeners.forEach((listener) => listener());
+      } else {
+        aiStatusRequested = false;
+      }
+    })
+    .catch(() => {
+      aiStatusRequested = false;
+    });
+}
+
+function subscribeAiStatus(onChange: () => void) {
+  aiStatusListeners.add(onChange);
+  loadAiStatus();
+  return () => aiStatusListeners.delete(onChange);
+}
+
+/** The server's real AI mode, or null until it has answered (so copy never claims a mode it has not checked). */
+export function useAiStatus(): AiStatus | null {
+  return useSyncExternalStore(subscribeAiStatus, () => aiStatusCache, () => null);
+}
+
+/** Test helper: forget the cached status. */
+export function resetAiStatusForTests() {
+  aiStatusCache = null;
+  aiStatusRequested = false;
 }

@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { shortHash } from "@/lib/hash/document";
 import { addressUrl, txUrl } from "@/lib/chain/config";
+import { ruleFor } from "@/lib/domain/tenancy-rules";
 
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
@@ -91,6 +92,31 @@ export function Notice({ tone = "info", children }: { tone?: "info" | "warn" | "
     <p className={`notice ${tone}`} role={tone === "error" ? "alert" : undefined}>
       {children}
     </p>
+  );
+}
+
+/** Shown for every state CourtAgent has not checked (everything except Lagos). */
+export function StateBanner({ state }: { state: string | null }) {
+  if (!state || ruleFor(state)) return null;
+  return (
+    <p className="notice warn" role="status">
+      <strong>Rules for this state are not legally verified. Get legal advice.</strong>
+    </p>
+  );
+}
+
+/** Every problem at once, so the user can fix them together. */
+export function IssueList({ title = "Still needed", items }: { title?: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="notice warn" role="status">
+      <strong>{title}</strong>
+      <ul className="issue-list">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
