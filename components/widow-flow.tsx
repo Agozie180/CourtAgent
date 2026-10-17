@@ -1,5 +1,6 @@
 "use client";
 
+import { lagosDateFromUnix } from "@/lib/domain/dates";
 import { useMemo, useState } from "react";
 import type { Address } from "viem";
 import { saveDocument, type SavedDocument } from "@/lib/storage";
@@ -108,7 +109,7 @@ export function WidowFlow() {
           propertyDescription: form.propertyDescription.trim(),
           recordHash: hash,
           recordLocation: record.source === "chain" ? "sepolia" : "demo",
-          recordDate: form.recordDate,
+          registeredOn: lagosDateFromUnix(record.createdAt),
           marriageType,
           hasWill: form.hasWill,
           hasDaughters,
@@ -156,7 +157,7 @@ export function WidowFlow() {
             <input id="registrant" type="text" value={form.registrantName} onChange={(event) => update("registrantName", event.target.value)} placeholder="Emeka Okoro" />
           </div>
           <div className="field">
-            <label htmlFor="record-date">Date of the record</label>
+            <label htmlFor="record-date">Date written on the record</label>
             <input id="record-date" type="date" value={form.recordDate} onChange={(event) => update("recordDate", event.target.value)} />
           </div>
         </div>

@@ -8,12 +8,20 @@ before the fix**. Checked on 2026-10-14.
 
 | ID | Finding | Severity | Fix | Regression test (fails on the old code) |
 |---|---|---|---|---|
-| F-1 | `register()` let anyone register a document hash with a party list of their own choosing. A stranger who saw an agreement's text could squat on its hash with different parties, and the real parties could then no longer register it. | High | The caller must be a listed party (`CreatorNotAParty`). Mirrored in Demo Mode. | `test/DocumentRegistry.ts` "F-1…" (verified failing on the old contract), `lib/chain/demo.test.ts` "F-1…" |
+| F-1 | `register()` let anyone register a document hash with a party list of their own choosing. A stranger who saw an agreement's text could squat on its hash with different parties, and the real parties could then no longer register it. | High | The caller must be a listed party (`CreatorNotAParty`). Mirrored in Demo Mode. | `contracts/test/DocumentRegistry.test.ts` "F-1…" (verified failing on the old contract), `lib/chain/demo.test.ts` "F-1…" |
 | F-2 | A hash alone does not say who recorded it. Even with F-1 fixed, a record could be registered by a party list that differs from the wallets written in the text, and the verify page still said "matches". | Medium | `/verify` compares the wallets written in the text with the registry parties and shows a red warning on any mismatch. | `lib/hash/parties.test.ts` |
 | F-3 | The scam rule `TEXT_ABROAD` matched "I am travelling", flagging an honest owner who only said they were travelling. | Low | Removed "travelling" from the pattern. Overseas and duty cases are now a separate Medium rule. | `lib/domain/corpus.test.ts` "F-3…" (verified failing on the old pattern) |
 | F-4 | The scam rules missed 5 of 14 sample scams (inspection fee, a cousin's account, "no need to inspect", offshore, cannot meet). | Medium | Added six Medium or High text rules. In-sample result went from 9 of 14 to 14 of 14. | `lib/domain/corpus.test.ts` |
-| F-5 | The TypeScript ABI used by the app could drift from the contract. | Low | A test compares the ABI with the compiled artifact. | `test/DocumentRegistry.ts` "the TypeScript ABI…" |
+| F-5 | The TypeScript ABI used by the app could drift from the contract. | Low | A test compares the ABI with the compiled artifact. | `contracts/test/DocumentRegistry.test.ts` "the TypeScript ABI…" |
 | F-6 | A user who sent a "not a party" wallet got no clear explanation. | Low | A "Try to sign anyway" action shows the registry's refusal, and error text names the cause. | `components/home-demos.test.tsx` |
+| F-7 | Vercel build failed: `next build` type-checked the Hardhat tests, whose generated types do not exist in a fresh clone. | High | tsconfig only covers the app; contracts live in an isolated `contracts/` workspace. A clean-clone build passes. | `tsconfig.json`, `.github/workflows/ci.yml` |
+| F-8 | Deprecated and vulnerable dependencies (old Next, ESLint config chain, solc/tmp). | Medium | Next 16, React 19.3, ESLint 10, vitest 5, Hardhat 3, solc 0.8.37. `npm audit`: 0 vulnerabilities, no install warnings. | `package.json`, `contracts/package.json` |
+| F-9 | Letters used the UTC date, a day behind in Lagos after midnight. | Medium | Local date helper. | `lib/domain/dates.ts` |
+| F-10 | The widow letter printed a user-typed date as the registration date, so it could be backdated. | High | The letter uses the registry's own timestamp in Lagos time. | `lib/domain/domain.test.ts` |
+| F-11 | `validateTerms` accepted nonsense (negative rent, `abc` dates) and `/api/explain` could return a 500. | Medium | Full numeric, date and length checks. | `lib/domain/domain.test.ts`, `app/api/api.test.ts` |
+| F-12 | A line break in a name or address could add a fake clause to the agreement. | Medium | Free text is collapsed to one line. | `lib/domain/domain.test.ts` |
+| F-13 | "2 bedroom for 1.5m" read the rent as 2. | Low | Amounts with a unit win, else the largest number. | `lib/domain/domain.test.ts` |
+| F-14 | No security headers, no body-size pre-check, no error or 404 page, no icon. | Low | CSP, frame, referrer and permissions headers; content-length check; pages added. | `next.config.ts`, `lib/api/guard.ts`, `app/` |
 
 ## What the audit did not fix, stated plainly
 
@@ -34,6 +42,6 @@ before the fix**. Checked on 2026-10-14.
 ## How to re-run the audit
 
 ```bash
-npm run check      # typecheck, lint, 75 unit and UI tests, 11 contract tests
+npm run check      # typecheck, lint, 82 unit, UI and API tests, 11 contract tests
 npm run measure    # corpus, held-out and tamper-sweep numbers
 ```

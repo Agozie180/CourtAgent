@@ -1,4 +1,6 @@
+import { isIsoDate } from "./dates";
 import { formatNgn } from "./intake";
+import { oneLine } from "./text";
 import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
 import { isNigerianState, stateLabel } from "./jurisdiction";
 import { checkAdvanceRentFor, lawNoteFor, noticePeriodFor, ruleFor } from "./tenancy-rules";
@@ -25,13 +27,24 @@ export type TenancyTerms = {
 
 export type TermsIssue = { field: string; message: string };
 
+const MAX_TEXT = 200;
+const MAX_MONEY = 10_000_000_000;
+
 export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   const issues: TermsIssue[] = [];
+  const add = (field: string, message: string) => issues.push({ field, message });
   const need = (field: keyof TenancyTerms, label: string) => {
     const value = terms[field];
-    if (value === undefined || value === null || value === "") issues.push({ field, message: `${label} is required.` });
+    if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) add(field, `${label} is required.`);
   };
-  if (!isNigerianState(terms.state)) issues.push({ field: "state", message: "Choose the state the property is in." });
+  const text = (field: "landlordName" | "tenantName" | "propertyAddress", label: string) => {
+    const value = terms[field];
+    if (value === undefined || value === null) return;
+    if (typeof value !== "string") add(field, `${label} must be text.`);
+    else if (oneLine(value).length > MAX_TEXT) add(field, `${label} is too long (most ${MAX_TEXT} characters).`);
+  };
+
+  if (!isNigerianState(terms.state)) add("state", "Choose the state the property is in.");
   need("landlordName", "Landlord name");
   need("tenantName", "Tenant name");
   need("propertyAddress", "Property address");
@@ -39,30 +52,64 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   need("startDate", "Start date");
   need("durationMonths", "Duration");
   need("tenancyType", "Tenancy type");
+  text("landlordName", "Landlord name");
+  text("tenantName", "Tenant name");
+  text("propertyAddress", "Property address");
+
+  const rent = terms.annualRentNgn;
+  if (rent !== undefined && rent !== null && !(typeof rent === "number" && Number.isFinite(rent) && rent > 0 && rent <= MAX_MONEY)) {
+    add("annualRentNgn", "Yearly rent must be a number above zero.");
+  }
+  const caution = terms.cautionNgn;
+  if (caution !== undefined && caution !== null && !(typeof caution === "number" && Number.isFinite(caution) && caution >= 0 && caution <= MAX_MONEY)) {
+    add("cautionNgn", "The caution deposit must be zero or more.");
+  }
+  const rooms = terms.bedrooms;
+  if (rooms !== undefined && rooms !== null && !(Number.isInteger(rooms) && rooms >= 1 && rooms <= 20)) {
+    add("bedrooms", "Bedrooms must be a whole number from 1 to 20.");
+  }
+  const months = terms.durationMonths;
+  if (months !== undefined && months !== null && !(Number.isInteger(months) && months >= 1 && months <= 240)) {
+    add("durationMonths", "Duration must be a whole number of months from 1 to 240.");
+  }
+  if (terms.startDate !== undefined && terms.startDate !== "" && (!isIsoDate(terms.startDate) || terms.startDate < "2000-01-01" || terms.startDate > "2100-12-31")) {
+    add("startDate", "Start date must be a real date written as YYYY-MM-DD.");
+  }
+  if (terms.tenancyType !== undefined && !(terms.tenancyType in TENANCY_TYPE_LABEL)) {
+    add("tenancyType", "Choose a tenancy type from the list.");
+  }
+  if (terms.agreedNotice !== undefined && (typeof terms.agreedNotice !== "string" || oneLine(terms.agreedNotice).length > 80)) {
+    add("agreedNotice", "The agreed notice period must be short text (most 80 characters), for example 3 months.");
+  }
   if (!/^0x[0-9a-fA-F]{40}$/.test(terms.landlordWallet ?? "")) {
-    issues.push({ field: "landlordWallet", message: "Landlord wallet address must be a valid 0x address." });
+    add("landlordWallet", "Landlord wallet address must be a valid 0x address.");
   }
   if (!/^0x[0-9a-fA-F]{40}$/.test(terms.tenantWallet ?? "")) {
-    issues.push({ field: "tenantWallet", message: "Tenant wallet address must be a valid 0x address." });
+    add("tenantWallet", "Tenant wallet address must be a valid 0x address.");
   }
   if (
     terms.landlordWallet &&
     terms.tenantWallet &&
     terms.landlordWallet.toLowerCase() === terms.tenantWallet.toLowerCase()
   ) {
-    issues.push({ field: "tenantWallet", message: "Landlord and tenant need two different wallet addresses." });
+    add("tenantWallet", "Landlord and tenant need two different wallet addresses.");
   }
   if (terms.advanceMonths !== undefined) {
-    const check = checkAdvanceRentFor(terms.state ?? "", terms.advanceMonths);
-    if (!check.ok) issues.push({ field: "advanceMonths", message: check.message });
+    const advance = terms.advanceMonths;
+    if (!(typeof advance === "number" && Number.isInteger(advance) && advance <= 120)) {
+      add("advanceMonths", "Advance rent must be a whole number of months.");
+    } else {
+      const check = checkAdvanceRentFor(terms.state ?? "", advance);
+      if (!check.ok) add("advanceMonths", check.message);
+    }
   } else {
-    issues.push({ field: "advanceMonths", message: "Advance rent months is required." });
+    add("advanceMonths", "Advance rent months is required.");
   }
   if (terms.state && terms.tenancyType && !ruleFor(terms.state) && !terms.agreedNotice?.trim()) {
-    issues.push({
-      field: "agreedNotice",
-      message: `Write the notice period you and the landlord agree (for example 3 months). CourtAgent has default notice periods only for states it has checked, and ${stateLabel(terms.state)} is not one of them yet.`,
-    });
+    add(
+      "agreedNotice",
+      `Write the notice period you and the landlord agree (for example 3 months). CourtAgent has default notice periods only for states it has checked, and ${stateLabel(terms.state)} is not one of them yet.`,
+    );
   }
   return issues;
 }
@@ -84,7 +131,15 @@ export function noticeText(terms: Pick<TenancyTerms, "state" | "tenancyType" | "
 }
 
 /** Deterministic draft. The wording is fixed on purpose: the AI explains it but never rewrites legal terms. */
-export function buildAgreement(terms: TenancyTerms): string {
+export function buildAgreement(raw: TenancyTerms): string {
+  // Free text is collapsed to one line so a typed line break cannot add a clause to the fixed template.
+  const terms: TenancyTerms = {
+    ...raw,
+    landlordName: oneLine(raw.landlordName),
+    tenantName: oneLine(raw.tenantName),
+    propertyAddress: oneLine(raw.propertyAddress),
+    agreedNotice: raw.agreedNotice === undefined ? undefined : oneLine(raw.agreedNotice),
+  };
   const monthly = terms.annualRentNgn / 12;
   const advanceAmount = Math.round(monthly * terms.advanceMonths);
   const rooms = `${terms.bedrooms}-bedroom${terms.parlour ? " with parlour" : ""}`;

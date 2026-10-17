@@ -2,17 +2,11 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { Hex } from "viem";
+import { localDateIso } from "@/lib/domain/dates";
 import type { RegistryBackend, RegistryRecord } from "@/lib/chain/types";
 import { parseDocuments, readDocumentsRaw, subscribeDocuments, type SavedDocument } from "@/lib/storage";
 
 const subscribeNothing = () => () => {};
-
-/** The date in the user's own time zone as YYYY-MM-DD. (`toISOString()` is UTC and is a day behind in Lagos after midnight.) */
-export function localDateIso(now: Date = new Date()): string {
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
-}
 
 /** The page origin, or "" while rendering on the server and during hydration. */
 export function useOrigin(): string {

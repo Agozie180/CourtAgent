@@ -102,7 +102,7 @@ export type WidowLetterInput = {
   propertyDescription: string;
   recordHash: string;
   recordLocation: RecordLocation;
-  recordDate: string; // YYYY-MM-DD, the day the property record was registered
+  registeredOn: string; // YYYY-MM-DD, the day the registry recorded the fingerprint (taken from the registry, not typed)
   marriageType: MarriageType;
   hasWill: boolean;
   hasDaughters: boolean;
@@ -148,7 +148,7 @@ RE: NOTICE OF MY LAWFUL OCCUPATION OF THE PROPERTY OF THE LATE ${input.deceasedN
 
 1. I am the widow of the late ${input.deceasedName}. I live in and use the property described as: ${input.propertyDescription}.
 
-2. A record of this property and its documents was registered on ${input.recordDate}. The record is ${recordPhrase(input.recordLocation)} under the hash ${input.recordHash}, so the text of the record cannot be quietly changed after that date.
+2. A record of this property and its documents was registered on ${input.registeredOn}. The record is ${recordPhrase(input.recordLocation)} under the hash ${input.recordHash}, so the text of the record cannot be quietly changed after that date without the fingerprint no longer matching.
 
 3. ${legalLines.join(" ")}
 

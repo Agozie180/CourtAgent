@@ -23,6 +23,8 @@ export function rateLimited(request: Request, now: number = Date.now()): boolean
 
 export async function readJson(request: Request, maxBytes = 40_000): Promise<unknown | null> {
   try {
+    const declared = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > maxBytes) return null;
     const text = await request.text();
     if (text.length > maxBytes) return null;
     return JSON.parse(text);

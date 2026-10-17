@@ -1,6 +1,6 @@
 # Handoff: CourtAgent (BLI Legal Tech Hackathon 2)
 
-Last updated: 2026-10-14 (Lagos time). Status: BUILD COMPLETE and polished against the playbook (75 unit/UI tests, 11 contract tests, build passes). Remaining work needs the owner's keys, wallet and accounts (see STILL TO DO).
+Last updated: 2026-10-17 (Lagos time). Status: BUILD COMPLETE, root audit done (82 app tests, 11 contract tests, build passes, npm audit 0). Vercel build fix: tsconfig no longer includes contract tests; contracts are an isolated workspace in contracts/ (Hardhat 3, solc 0.8.37). Deps modernised (Next 16, React 19.3, ESLint 10, vitest 5, Node 22). See AUDIT.md F-7 to F-14. The contract must be REDEPLOYED (solc and register rule changed). Set NEXT_PUBLIC_* env vars in Vercel before building. Remaining work needs the owner's keys, wallet and accounts (see STILL TO DO).
 Repo: https://github.com/Agozie180/CourtAgent (branch main). Local working copy: /home/claude/work/CourtAgent in the build session.
 
 ## Hackathon
@@ -30,7 +30,7 @@ DONE and tested (51 unit tests via `npm test`, 8 contract tests via `npm run con
 - lib/ai/provider.ts (Anthropic and OpenAI over fetch, fallback, offline) and lib/ai/tasks.ts (intake, document check, plain-language explanation; AI notes are capped at "medium" so only fixed rules can say High)
 - lib/api/guard.ts (rate limit, JSON reader); API routes /api/status, /api/intake, /api/check, /api/explain
 - lib/storage.ts (saved documents in the browser)
-- Config: package.json, tsconfig.json, eslint.config.js, vitest.config.ts, next.config.ts, hardhat.config.ts, .env.example, .gitignore, .nvmrc (20), MIT LICENSE
+- Config: package.json, tsconfig.json, eslint.config.js, vitest.config.ts, next.config.ts, hardhat.config.ts, .env.example, .gitignore, .nvmrc (22), MIT LICENSE
 
 ALSO DONE (UI, committed and pushed): app/layout.tsx, app/globals.css, landing, /rent (5 steps), /widow, /verify, session-provider, site-header, bits, record-status; scripts/verify-live.ts; lib/ai/thesis.test.ts (56 unit tests pass); README.md; docs/DEMO.md. Checked in headless Chromium in Demo Mode at desktop and 390px: rental flow, widow flow, verify mismatch, no console errors.
 

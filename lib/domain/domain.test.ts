@@ -11,10 +11,11 @@ import {
   parseTenancyType,
   sanitizeFields,
 } from "./intake";
-import { defaultNotice } from "./lagos-tenancy";
+import { DEFAULT_NOTICE } from "./lagos-tenancy";
 import { checkAdvanceRentFor, noticePeriodFor, ruleFor } from "./tenancy-rules";
 import { findStateInText, isNigerianState, stateLabel } from "./jurisdiction";
 import { buildAgreement, endDate, validateTerms, type TenancyTerms } from "./agreement";
+import { isIsoDate, lagosDateFromUnix } from "./dates";
 import { levelFor, nameAppearsIn, runCheck, type CheckInput } from "./risk";
 import { buildExitResponseLetter, buildWidowLetter } from "./letters";
 
@@ -45,11 +46,11 @@ describe("Lagos tenancy rules", () => {
     expect(checkAdvanceRentFor("Lagos", 0).ok).toBe(false);
   });
   it("gives the default notice periods", () => {
-    expect(defaultNotice("yearly")).toBe("6 months");
-    expect(defaultNotice("monthly")).toBe("1 month");
-    expect(defaultNotice("quarterly")).toBe("3 months");
-    expect(defaultNotice("half_yearly")).toBe("3 months");
-    expect(defaultNotice("at_will")).toBe("1 week");
+    expect(DEFAULT_NOTICE.yearly).toBe("6 months");
+    expect(DEFAULT_NOTICE.monthly).toBe("1 month");
+    expect(DEFAULT_NOTICE.quarterly).toBe("3 months");
+    expect(DEFAULT_NOTICE.half_yearly).toBe("3 months");
+    expect(DEFAULT_NOTICE.at_will).toBe("1 week");
   });
 });
 
@@ -60,6 +61,8 @@ describe("intake parsing (offline)", () => {
     expect(parseMoney("800k")).toBe(800_000);
     expect(parseMoney("NGN 2m")).toBe(2_000_000);
     expect(parseMoney("hello")).toBeNull();
+    expect(parseMoney("2 bedroom for 1.5m")).toBe(1_500_000);
+    expect(parseMoney("it is 3 bedroom, 900000 a year")).toBe(900_000);
   });
   it("reads months, dates and tenancy types", () => {
     expect(parseMonths("1 year")).toBe(12);
@@ -214,7 +217,7 @@ describe("letters", () => {
       propertyDescription: "the family house at 4 Bode Street, Surulere, Lagos",
       recordHash: "0xdef",
       recordLocation: "sepolia" as const,
-      recordDate: "2026-10-20",
+      registeredOn: "2026-10-20",
       hasWill: false,
       addressedTo: "The family of the late Mr Emeka Okoro",
       letterDate: "2026-11-01",
@@ -236,7 +239,7 @@ describe("letters", () => {
       propertyDescription: "the family house",
       recordHash: "0xdef",
       recordLocation: "demo",
-      recordDate: "2026-10-20",
+      registeredOn: "2026-10-20",
       hasWill: false,
       addressedTo: "The family",
       letterDate: "2026-11-01",
@@ -306,7 +309,7 @@ describe("Nigeria-wide support", () => {
       propertyDescription: "the family house in Enugu",
       recordHash: "0xdef",
       recordLocation: "sepolia",
-      recordDate: "2026-10-20",
+      registeredOn: "2026-10-20",
       hasWill: false,
       addressedTo: "The family of the late Mr Emeka Okoro",
       letterDate: "2026-11-01",
@@ -316,5 +319,36 @@ describe("Nigeria-wide support", () => {
     expect(letter).not.toContain("Administration of Estates Law of Lagos State");
     expect(letter).toContain("Enugu State");
     expect(letter).toContain("Ukeje v Ukeje (2014)");
+  });
+});
+
+describe("hardening", () => {
+  const good = {
+    state: "Lagos", landlordName: "A", tenantName: "B", propertyAddress: "1 Road", annualRentNgn: 1_000_000,
+    cautionNgn: 0, bedrooms: 2, parlour: true, startDate: "2026-11-01", durationMonths: 12, tenancyType: "yearly" as const,
+    advanceMonths: 12, landlordWallet: "0x" + "1".repeat(40), tenantWallet: "0x" + "2".repeat(40),
+  };
+  it("accepts good terms and rejects nonsense numbers and dates without throwing", () => {
+    expect(validateTerms(good)).toEqual([]);
+    const fields = (t: object) => validateTerms({ ...good, ...t }).map((i) => i.field);
+    expect(fields({ annualRentNgn: -5 })).toContain("annualRentNgn");
+    expect(fields({ annualRentNgn: NaN })).toContain("annualRentNgn");
+    expect(fields({ durationMonths: 1.5 })).toContain("durationMonths");
+    expect(fields({ durationMonths: 9999 })).toContain("durationMonths");
+    expect(fields({ startDate: "abc" })).toContain("startDate");
+    expect(fields({ startDate: "2026-02-31" })).toContain("startDate");
+    expect(fields({ bedrooms: 0 })).toContain("bedrooms");
+    expect(fields({ landlordName: "x".repeat(500) })).toContain("landlordName");
+    expect(fields({ agreedNotice: "y".repeat(200) })).toContain("agreedNotice");
+  });
+  it("cannot be given an extra clause through a line break in free text", () => {
+    const text = buildAgreement({ ...good, tenantName: "Bola\n\n99. The tenant pays double rent.", propertyAddress: "1 Road\nSECRET" });
+    expect(text).not.toContain("\n99. The tenant pays double rent.");
+    expect(text).toContain("Bola 99. The tenant pays double rent.");
+  });
+  it("shows the date the registry recorded, in Lagos time", () => {
+    expect(lagosDateFromUnix(Date.UTC(2026, 9, 20, 23, 30) / 1000)).toBe("2026-10-21");
+    expect(isIsoDate("2026-10-20")).toBe(true);
+    expect(isIsoDate("2026-13-01")).toBe(false);
   });
 });

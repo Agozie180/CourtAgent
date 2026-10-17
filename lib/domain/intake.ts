@@ -121,13 +121,22 @@ const NUMBER_WORDS: Record<string, number> = {
 
 export function parseMoney(text: string): number | null {
   const lower = text.toLowerCase().replace(/[₦,]/g, "").replace(/\bngn\b|\bnaira\b|\bn(?=\d)/g, " ");
-  const match = lower.match(/(\d+(?:\.\d+)?)\s*(million|mil|m|thousand|k)?\b/);
-  if (!match) return null;
-  let value = parseFloat(match[1]);
-  const unit = match[2];
-  if (unit === "million" || unit === "mil" || unit === "m") value *= 1_000_000;
-  else if (unit === "thousand" || unit === "k") value *= 1_000;
-  return Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
+  const scale = (digits: string, unit?: string) => {
+    let value = parseFloat(digits);
+    if (unit === "million" || unit === "mil" || unit === "m") value *= 1_000_000;
+    else if (unit === "thousand" || unit === "k") value *= 1_000;
+    return value;
+  };
+  // Prefer an amount written with a unit (1.5m, 800k); otherwise the largest plain number.
+  // "2 bedroom for 1.5m" is 1,500,000, not 2.
+  const unitMatch = lower.match(/(\d+(?:\.\d+)?)\s*(million|mil|thousand|m|k)\b/);
+  let value: number | null = null;
+  if (unitMatch) value = scale(unitMatch[1], unitMatch[2]);
+  else {
+    const plain = [...lower.matchAll(/\d+(?:\.\d+)?/g)].map((m) => parseFloat(m[0]));
+    if (plain.length) value = Math.max(...plain);
+  }
+  return value !== null && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
 }
 
 function parseCount(text: string): number | null {

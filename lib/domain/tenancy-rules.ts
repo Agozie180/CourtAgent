@@ -6,6 +6,7 @@ import {
   type TenancyType,
 } from "./lagos-tenancy";
 import { stateLabel } from "./jurisdiction";
+import { oneLine } from "./text";
 
 /**
  * Tenancy rules we have actually checked, by state. Only Lagos is verified so far.
@@ -80,6 +81,6 @@ export function checkAdvanceRentFor(state: string, advanceMonths: number): Advan
 
 /** The notice period to write in the agreement: the one the parties agreed, else the verified default, else null. */
 export function noticePeriodFor(state: string, type: TenancyType, agreed?: string): string | null {
-  if (agreed?.trim()) return agreed.trim();
+  if (agreed?.trim()) return oneLine(agreed);
   return ruleFor(state)?.defaultNotice[type] ?? null;
 }

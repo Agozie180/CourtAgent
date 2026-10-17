@@ -36,26 +36,5 @@ export const LAW_NOTE =
 export const DISCLAIMER =
   "General guidance and a draft only, not legal advice. CourtAgent is not a law firm. Have a lawyer review important documents.";
 
-export type AdvanceRentCheck = { ok: boolean; message: string };
-
-export function checkAdvanceRent(advanceMonths: number): AdvanceRentCheck {
-  if (!Number.isFinite(advanceMonths) || advanceMonths <= 0) {
-    return { ok: false, message: "Enter how many months of rent are paid in advance." };
-  }
-  if (advanceMonths > MAX_ADVANCE_RENT_MONTHS_NEW_TENANT) {
-    return {
-      ok: false,
-      message: `Asking for ${advanceMonths} months of rent in advance is above the one-year limit for a new tenant under the Lagos Tenancy Law 2011. Do not pay it without getting advice.`,
-    };
-  }
-  return { ok: true, message: `${advanceMonths} months in advance is within the one-year limit for a new tenant.` };
-}
-
-export function defaultNotice(type: TenancyType): string {
-  return DEFAULT_NOTICE[type];
-}
-
 export const EVICTION_PROCESS_NOTE =
   "Under the Lagos Tenancy Law 2011 a landlord cannot evict a tenant personally or by force. The landlord must give a valid notice to quit, then a 7-day notice of intention to recover possession, and then obtain a court order.";
-
-export const RENT_RECEIPT_NOTE = "A landlord in Lagos must issue a receipt whenever rent is paid.";

@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/Agozie180/CourtAgent/actions/workflows/ci.yml/badge.svg)](https://github.com/Agozie180/CourtAgent/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/license-MIT-1B6B4F)
-![Node 20+](https://img.shields.io/badge/node-20%2B-16213A)
+![Node 22+](https://img.shields.io/badge/node-22%2B-16213A)
 
 | | |
 |---|---|
-| **Try it** | Live demo: _add the hosted URL_ (or `npm install && npm run dev`, 30 seconds, no keys) |
+| **Try it** | Live demo: _add the hosted URL_ (or `npm ci && npm run dev`, 30 seconds, no keys) |
 | **Demo video** | _add link_ (script: [`docs/DEMO.md`](docs/DEMO.md)) |
 | **Contract on Ethereum Sepolia** | _add Etherscan link after `npm run deploy:sepolia`_ |
 | **Verify page** | `/verify` in the app. Paste any agreement text and see if it was recorded. |
@@ -77,7 +77,7 @@ sequenceDiagram
 
 | Surface | Used? | Evidence, or the reason it is not |
 |---|---|---|
-| Ethereum Sepolia and a Solidity registry | Yes | `contracts/DocumentRegistry.sol`, 11 contract tests, `npm run deploy:sepolia`. **Address pending**: the build environment could not reach a Sepolia RPC. |
+| Ethereum Sepolia and a Solidity registry | Yes | `contracts/src/DocumentRegistry.sol`, 11 contract tests, `npm run deploy:sepolia`. **Address pending**: the build environment could not reach a Sepolia RPC. |
 | viem and an injected wallet (MetaMask) | Yes | `lib/chain/onchain.ts`. **Not yet tested in a real browser wallet.** |
 | Anthropic and OpenAI over plain `fetch` | Yes, optional | `lib/ai/provider.ts`, mocked-HTTP tests. **Not yet tested with real keys.** |
 | Offline rules mode | Yes | The whole product runs with no key. |
@@ -122,7 +122,7 @@ but never a verdict, and why a Low result is always shown with "this does not pr
 
 ## Try it in 30 seconds
 
-Needs Node 20 or newer. No keys, no wallet.
+Needs Node 22 or newer. No keys, no wallet.
 
 ```bash
 git clone https://github.com/Agozie180/CourtAgent.git
@@ -163,7 +163,13 @@ offline rules engine.
 4. `npm run verify:live` confirms the contract exists on Sepolia.
 5. Restart the app and use **Sepolia** mode with a browser wallet.
 
-The contract compiles with the pinned `solc` npm package, so no compiler download is needed.
+The contract lives in its own `contracts/` workspace (Hardhat 3) and compiles with the pinned `solc` npm package, so no compiler download is needed. Run `npm run setup` once to install both workspaces.
+
+### Deploy the app on Vercel
+
+1. Import the repo. Framework: Next.js. Node 22. No build command changes are needed.
+2. Set environment variables **before the first build**: `NEXT_PUBLIC_REGISTRY_ADDRESS`, `NEXT_PUBLIC_SEPOLIA_RPC_URL` (these `NEXT_PUBLIC_*` values are inlined at build time), and optionally `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`.
+3. Redeploy after changing any `NEXT_PUBLIC_*` value. Without them the app runs in Demo Mode.
 
 ## Limitations, stated plainly
 
