@@ -165,6 +165,8 @@ offline rules engine.
 
 The contract lives in its own `contracts/` workspace (Hardhat 3) and compiles with the pinned `solc` npm package, so no compiler download is needed. Run `npm run setup` once to install both workspaces.
 
+No computer to run it on? In GitHub, open Settings, Secrets and variables, Actions and add `DEPLOYER_PRIVATE_KEY` (throwaway wallet with test ETH). Then open the Actions tab, choose **Deploy contract**, and press **Run workflow**. It runs the contract tests, deploys, and commits `deployments/sepolia.json` with the address.
+
 ### Deploy the app on Vercel
 
 1. Import the repo. Framework: Next.js. Node 22. No build command changes are needed.

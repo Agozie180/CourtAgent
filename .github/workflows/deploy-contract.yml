@@ -1,0 +1,43 @@
+name: Deploy contract
+# Manual only. Run it from the GitHub Actions tab: "Deploy contract" -> "Run workflow".
+# Needs repo secret DEPLOYER_PRIVATE_KEY (a THROWAWAY wallet with test ETH, never a real-funds key).
+# Optional secret SEPOLIA_RPC_URL; the public node is used if it is not set.
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network to deploy to
+        type: choice
+        default: sepolia
+        options: [sepolia, bnbTestnet]
+permissions:
+  contents: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm --prefix contracts ci
+      - run: npm run contracts:test
+      - name: Deploy
+        env:
+          NETWORK: ${{ inputs.network }}
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+        run: |
+          test -n "$DEPLOYER_PRIVATE_KEY" || { echo "Add the DEPLOYER_PRIVATE_KEY repo secret first."; exit 1; }
+          [ -n "$SEPOLIA_RPC_URL" ] || unset SEPOLIA_RPC_URL
+          npm run deploy:sepolia
+      - name: Commit the deployment record
+        run: |
+          git config user.name Agozie180
+          git config user.email 137266828+Agozie180@users.noreply.github.com
+          git add deployments/*.json
+          git commit -m "Record ${{ inputs.network }} deployment" || echo "Nothing to commit"
+          git push
+      - name: Show the address
+        run: cat deployments/${{ inputs.network }}.json
