@@ -1,6 +1,6 @@
 # Handoff: CourtAgent (BLI Legal Tech Hackathon 2)
 
-Last updated: 2026-10-17 (Lagos time, second pass: 16 reported bugs fixed, see AUDIT.md F-15 to F-20; flows tested end to end in components/flows.test.tsx). Status: BUILD COMPLETE, root audit done (82 app tests, 11 contract tests, build passes, npm audit 0). Vercel build fix: tsconfig no longer includes contract tests; contracts are an isolated workspace in contracts/ (Hardhat 3, solc 0.8.37). Deps modernised (Next 16, React 19.3, ESLint 10, vitest 5, Node 22). See AUDIT.md F-7 to F-14. DEPLOYED to Sepolia on 2026-10-17 via the GitHub Actions "Deploy contract" workflow: 0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff (block 11931735, see deployments/sepolia.json). Still set NEXT_PUBLIC_REGISTRY_ADDRESS in Vercel. Set NEXT_PUBLIC_* env vars in Vercel before building. Remaining work needs the owner's keys, wallet and accounts (see STILL TO DO).
+Last updated: 2026-10-23 (Lagos time), third pass: full root audit, see AUDIT.md F-21 to F-28 and lib/domain/audit2.test.ts. 138 app tests, 11 contract tests, typecheck, lint and build pass. The contract is deployed on Sepolia (0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff, block 11931735) and a fresh clone now uses it by default. The audit environment could NOT reach Sepolia, so run `npm run verify:live` yourself. Still untested: real MetaMask, real AI keys, hosting, demo video, lawyer review.
 Repo: https://github.com/Agozie180/CourtAgent (branch main). Local working copy: /home/claude/work/CourtAgent in the build session.
 
 ## Hackathon
@@ -39,7 +39,7 @@ STILL TO DO (the user does these; they need his keys or wallet):
 2. Test with real Anthropic and OpenAI keys (confirm the OpenAI model name). AI paths were only tested with mocked HTTP.
 3. Test wallet (Sepolia) mode in a real browser with MetaMask. Never tested.
 4. Host the app (for example Vercel), put the URL in README. Record the 2-minute demo video (docs/DEMO.md), submit on DoraHacks before 2026/11/01 02:01 (Lagos time).
-5. Before submitting: get a lawyer to review the law notes; remove or gitignore Handoff.md; check there are no secrets.
+5. Before submitting: get a lawyer to review the law notes; check there are no secrets. Handoff.md stays in the repo on purpose (the owner wants it kept up to date to continue in a new chat).
 6. Optional: research more states (FCT, Enugu, Rivers, Ogun, Oyo) and add verified entries to lib/domain/tenancy-rules.ts with tests.
 
 ## Session 2026-10-14: playbook pass (what changed)
@@ -103,3 +103,9 @@ Circuit: crypto protocol / legal-tech (judges likely lawyers and compliance peop
 
 ## Next step when resumed
 Open this repo, read this file and `git log`, run `npm install && npm run check`. The code is finished; what is left is the Sepolia deploy, real-key testing, hosting, demo video and submission (see STILL TO DO). Commits must be authored by Agozie180 only, with no co-author trailers.
+
+## Session 2026-10-23: third audit pass (what changed)
+- endDate no longer slips into the next month (F-21). validateTerms cannot throw and requires bedrooms, parlour, caution (F-22). Wallets are checksum-validated via lib/domain/wallet.ts (F-23). Offline intake obeys the AI limits (F-24). Corrupt browser storage is ignored (F-25). Exit letter wording follows real signature state and dates (F-26).
+- Share links carry `net=sepolia`; /verify offers a switch to Sepolia (F-27). Reverted transactions throw, reads use fallback RPCs, and lib/chain/config.ts defaults to deployments/sepolia.json (F-28).
+- Left alone on purpose: the `at` event parameter name in the contract (renaming changes the ABI and needs a redeploy).
+- Still to do by the owner: set NEXT_PUBLIC_SITE_URL and hosted URL, record the demo video, test MetaMask on Sepolia once, test real AI keys, lawyer review, submit before 2026/11/01 02:01 Lagos time.

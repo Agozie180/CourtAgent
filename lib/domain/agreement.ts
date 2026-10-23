@@ -3,6 +3,7 @@ import { formatNgn } from "./intake";
 import { oneLine, plural } from "./text";
 import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
 import { isNigerianState, stateLabel } from "./jurisdiction";
+import { isWalletAddress, sameWallet, walletMessage } from "./wallet";
 import { checkAdvanceRentFor, lawNoteFor, noticePeriodFor, ruleFor } from "./tenancy-rules";
 
 export type TenancyTerms = {
@@ -32,6 +33,7 @@ export type TermsIssue = { field: string; message: string };
 const MAX_TEXT = 200;
 const MAX_MONEY = 10_000_000_000;
 
+
 export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   const issues: TermsIssue[] = [];
   const add = (field: string, message: string) => issues.push({ field, message });
@@ -54,6 +56,10 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   need("startDate", "Start date");
   need("durationMonths", "Duration");
   need("tenancyType", "Tenancy type");
+  need("bedrooms", "Number of bedrooms");
+  need("cautionNgn", "Caution deposit (enter 0 if there is none)");
+  if (terms.parlour !== undefined && typeof terms.parlour !== "boolean") add("parlour", "Parlour must be yes or no.");
+  else if (terms.parlour === undefined) add("parlour", "Say whether the property has a parlour.");
   text("landlordName", "Landlord name");
   text("tenantName", "Tenant name");
   text("propertyAddress", "Property address");
@@ -77,29 +83,23 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   if (terms.startDate !== undefined && terms.startDate !== "" && (!isIsoDate(terms.startDate) || terms.startDate < "2000-01-01" || terms.startDate > "2100-12-31")) {
     add("startDate", "Start date must be a real date written as YYYY-MM-DD.");
   }
-  if (terms.tenancyType !== undefined && !(terms.tenancyType in TENANCY_TYPE_LABEL)) {
+  // Object.hasOwn: a plain `in` test would accept inherited names such as "toString" or "constructor".
+  if (terms.tenancyType !== undefined && !(typeof terms.tenancyType === "string" && Object.hasOwn(TENANCY_TYPE_LABEL, terms.tenancyType))) {
     add("tenancyType", "Choose a tenancy type from the list.");
   }
   if (terms.agreedNotice !== undefined && (typeof terms.agreedNotice !== "string" || oneLine(terms.agreedNotice).length > 80)) {
     add("agreedNotice", "The agreed notice period must be short text (most 80 characters), for example 3 months.");
   }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(terms.landlordWallet ?? "")) {
-    add("landlordWallet", "Landlord wallet address must be a valid 0x address.");
-  }
-  if (!/^0x[0-9a-fA-F]{40}$/.test(terms.tenantWallet ?? "")) {
-    add("tenantWallet", "Tenant wallet address must be a valid 0x address.");
-  }
-  if (
-    terms.landlordWallet &&
-    terms.tenantWallet &&
-    terms.landlordWallet.toLowerCase() === terms.tenantWallet.toLowerCase()
-  ) {
+  const landlordOk = isWalletAddress(terms.landlordWallet);
+  const tenantOk = isWalletAddress(terms.tenantWallet);
+  if (!landlordOk) add("landlordWallet", walletMessage("Landlord wallet address"));
+  if (!tenantOk) add("tenantWallet", walletMessage("Tenant wallet address"));
+  if (landlordOk && tenantOk && sameWallet(terms.landlordWallet, terms.tenantWallet)) {
     add("tenantWallet", "Landlord and tenant need two different wallet addresses.");
   }
   if (terms.witnessWallet !== undefined) {
-    const witness = terms.witnessWallet.toLowerCase();
-    if (!/^0x[0-9a-f]{40}$/.test(witness)) add("witnessWallet", "The witness wallet address must be a valid 0x address.");
-    else if (witness === (terms.landlordWallet ?? "").toLowerCase() || witness === (terms.tenantWallet ?? "").toLowerCase()) {
+    if (!isWalletAddress(terms.witnessWallet)) add("witnessWallet", walletMessage("Witness wallet address"));
+    else if (sameWallet(terms.witnessWallet, terms.landlordWallet) || sameWallet(terms.witnessWallet, terms.tenantWallet)) {
       add("witnessWallet", "The witness needs a different wallet from the landlord and the tenant.");
     }
   }
@@ -114,7 +114,8 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   } else {
     add("advanceMonths", "Advance rent months is required.");
   }
-  if (terms.state && terms.tenancyType && !ruleFor(terms.state) && !terms.agreedNotice?.trim()) {
+  const agreedNoticeText = typeof terms.agreedNotice === "string" ? terms.agreedNotice.trim() : "";
+  if (isNigerianState(terms.state) && terms.tenancyType && !ruleFor(terms.state) && !agreedNoticeText) {
     add(
       "agreedNotice",
       `Write the notice period you and the landlord agree (for example 3 months). CourtAgent has default notice periods only for states it has checked, and ${stateLabel(terms.state)} is not one of them yet.`,
@@ -123,11 +124,17 @@ export function validateTerms(terms: Partial<TenancyTerms>): TermsIssue[] {
   return issues;
 }
 
+/**
+ * The last day of the tenancy: the day before the monthly anniversary of the start date.
+ * When the start day does not exist in the target month (31 January plus one month), the anniversary is the last day
+ * of that month, so 2026-01-31 for 1 month ends on 2026-02-27, never in March.
+ */
 export function endDate(startDate: string, durationMonths: number): string {
   const [y, m, d] = startDate.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1 + durationMonths, d));
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
+  const daysInTargetMonth = new Date(Date.UTC(y, m - 1 + durationMonths + 1, 0)).getUTCDate();
+  const anniversary = new Date(Date.UTC(y, m - 1 + durationMonths, Math.min(d, daysInTargetMonth)));
+  anniversary.setUTCDate(anniversary.getUTCDate() - 1);
+  return anniversary.toISOString().slice(0, 10);
 }
 
 export function noticeText(terms: Pick<TenancyTerms, "state" | "tenancyType" | "agreedNotice">): string {
@@ -148,6 +155,8 @@ export function buildAgreement(raw: TenancyTerms): string {
     tenantName: oneLine(raw.tenantName),
     propertyAddress: oneLine(raw.propertyAddress),
     agreedNotice: raw.agreedNotice === undefined ? undefined : oneLine(raw.agreedNotice),
+    landlordWallet: raw.landlordWallet.trim(),
+    tenantWallet: raw.tenantWallet.trim(),
     witnessWallet: raw.witnessWallet?.trim() || undefined,
   };
   const monthly = terms.annualRentNgn / 12;

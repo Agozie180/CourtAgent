@@ -32,10 +32,25 @@ function defaultStorage(): StorageLike | null {
   }
 }
 
+function isSavedDocument(value: unknown): value is SavedDocument {
+  if (!value || typeof value !== "object") return false;
+  const doc = value as Record<string, unknown>;
+  const body = doc.kind === "TENANCY_AGREEMENT" ? doc.terms : doc.kind === "PROPERTY_RECORD" ? doc.record : null;
+  return (
+    typeof doc.hash === "string" &&
+    typeof doc.text === "string" &&
+    typeof doc.createdAt === "string" &&
+    (doc.source === "chain" || doc.source === "demo") &&
+    typeof body === "object" &&
+    body !== null
+  );
+}
+
+/** Saved documents from browser storage. Anything that is not a well-formed document (a corrupted or hand-edited entry) is dropped. */
 export function parseDocuments(raw: string): SavedDocument[] {
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SavedDocument[]) : [];
+    return Array.isArray(parsed) ? parsed.filter(isSavedDocument) : [];
   } catch {
     return [];
   }

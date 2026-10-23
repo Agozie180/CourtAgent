@@ -160,7 +160,7 @@ export function WidowFlow() {
         })
       : null;
 
-  const shareUrl = text && origin ? `${origin}${buildVerifyPath(text)}` : "";
+  const shareUrl = text && origin ? `${origin}${buildVerifyPath(text, (record?.source ?? session.registry.source) === "chain" ? "sepolia" : undefined)}` : "";
 
   return (
     <div>

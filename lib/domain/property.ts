@@ -1,5 +1,6 @@
 import { DISCLAIMER } from "./lagos-tenancy";
 import { oneLine } from "./text";
+import { isWalletAddress } from "./wallet";
 
 export type PropertyRecordInput = {
   registrantName: string; // the person registering, for example the husband or the couple
@@ -22,7 +23,7 @@ export function mentionsWill(documents: string): boolean {
 export function validatePropertyRecord(input: Partial<PropertyRecordInput>): string[] {
   const issues: string[] = [];
   if (!input.registrantName?.trim()) issues.push("Enter the name of the person registering.");
-  if (!/^0x[0-9a-fA-F]{40}$/.test(input.registrantWallet ?? "")) issues.push("Enter a valid wallet address.");
+  if (!isWalletAddress(input.registrantWallet)) issues.push("Enter a valid wallet address (42 characters starting with 0x). If it mixes capital and small letters, check it for typing mistakes.");
   if (!input.propertyDescription?.trim()) issues.push("Describe the property.");
   if (!input.documentsHeld?.trim()) issues.push("List the documents you hold for the property.");
   if (!input.whereKept?.trim()) issues.push("Say where the original documents are kept.");
@@ -30,10 +31,11 @@ export function validatePropertyRecord(input: Partial<PropertyRecordInput>): str
   if (input.documentsHeld && mentionsWill(input.documentsHeld) && !input.hasWill) {
     issues.push('You listed a will under "Documents you hold", but answered No to "Has a will been made?". Change one of them before you record.');
   }
-  const witness = input.witnessWallet?.trim();
   if (input.witnessWallet !== undefined) {
-    if (!/^0x[0-9a-fA-F]{40}$/.test(witness ?? "")) issues.push("The witness wallet address must be a valid 0x address.");
-    else if ((witness ?? "").toLowerCase() === (input.registrantWallet ?? "").toLowerCase()) issues.push("The witness needs a different wallet from the person registering.");
+    if (!isWalletAddress(input.witnessWallet)) issues.push("The witness wallet address must be a valid 0x address.");
+    else if (input.witnessWallet.trim().toLowerCase() === (input.registrantWallet ?? "").trim().toLowerCase()) {
+      issues.push("The witness needs a different wallet from the person registering.");
+    }
   }
   return issues;
 }

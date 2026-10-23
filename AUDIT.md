@@ -28,6 +28,14 @@ before the fix**. Checked on 2026-10-14.
 | F-18 | FULLY SIGNED was possible with one signer, and nobody was asked who must sign. | Medium | A "Who must sign?" choice adds a witness to the text and the registry. FULLY SIGNED shows only when all have signed. | `components/flows.test.tsx` |
 | F-19 | Ukeje v Ukeje was worded so it could read as support for a widow's right to stay. Legal-aid lines named bodies for the wrong state. | High | Ukeje is described as a daughter-inheritance case. Legal aid is chosen by state, with official links only and no phone numbers. | `lib/domain/fixes.test.ts` |
 | F-20 | A will listed under Documents with "No will" selected could be recorded. A demand could be dated before the tenancy began. | Medium | Both are blocked with a clear message. | `lib/domain/fixes.test.ts`, `components/flows.test.tsx` |
+| F-21 | `endDate` rolled a 31st-of-month start into the next month (31 Jan plus 1 month ended 2 March), and that wrong date was written into a hashed agreement. | High | The end is the day before the monthly anniversary, clamped to the month's last day. | `lib/domain/audit2.test.ts` A-1 |
+| F-22 | `validateTerms` threw on a non-string wallet, and accepted `toString` as a tenancy type. A missing bedrooms, parlour or caution field produced an agreement containing "undefined". | High | Type-safe wallet checks, `Object.hasOwn`, required-field checks. | A-2, A-3, A-4 |
+| F-23 | Wallet addresses were checked by shape only, so a mistyped checksum address was accepted and the wrong person could be named as a signer. | Medium | Full address validation including checksum, shared by rental and property flows. | A-5 |
+| F-24 | The offline chat parser accepted 0 bedrooms, 500 bedrooms, zero rent and 0 months, which the AI path rejected. | Medium | Offline output goes through the same sanitiser, with a specific reply for each limit. | A-6 |
+| F-25 | A corrupted or hand-edited browser-storage entry crashed the verify page and the Demo ledger. | Medium | Both readers keep only well-formed entries. | A-7 |
+| F-26 | The exit letter said "We signed" when the landlord had not, and "lawful possession" after the term had ended. Typed text could add a paragraph. | High | Wording follows the real signature state and dates, with a note; free text is one line. | A-8 |
+| F-27 | A Sepolia share link opened in a fresh browser looked up the viewer's empty Demo Mode and showed a false NOT RECORDED. | High | Links carry `net=sepolia`; the verify page offers the switch. | A-9 |
+| F-28 | A mined but reverted transaction was reported as recorded. A single public RPC was a single point of failure. A fresh clone with no env variable ran in Demo Mode only. | High | Receipt status is checked, reads fall back across several RPCs, and the committed deployment is the default registry. | A-10, A-11 |
 
 ## What the audit did not fix, stated plainly
 
@@ -48,6 +56,6 @@ before the fix**. Checked on 2026-10-14.
 ## How to re-run the audit
 
 ```bash
-npm run check      # typecheck, lint, 108 unit, UI, flow and API tests, 11 contract tests
+npm run check      # typecheck, lint, 138 unit, UI, flow and API tests, 11 contract tests
 npm run measure    # corpus, held-out and tamper-sweep numbers
 ```

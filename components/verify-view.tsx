@@ -4,7 +4,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import type { Hex } from "viem";
 import { hashDocument, isDocHash, shortHash } from "@/lib/hash/document";
 import { comparePartiesToText } from "@/lib/hash/parties";
-import { readShareFromHash } from "@/lib/share";
+import { readShareFromHash, readShareNetwork } from "@/lib/share";
 import { useRegistryRecord, useSavedDocuments } from "@/lib/hooks";
 import type { TxResult } from "@/lib/chain/types";
 import { HashLine, Notice, TxLine, errorMessage } from "./bits";
@@ -20,7 +20,10 @@ const readHash = () => window.location.hash;
 export function VerifyView() {
   const session = useSession();
   // Text from a share link (/verify#d=...). The fragment never leaves the browser.
-  const linkedText = readShareFromHash(useSyncExternalStore(subscribeHash, readHash, () => ""));
+  const fragment = useSyncExternalStore(subscribeHash, readHash, () => "");
+  const linkedText = readShareFromHash(fragment);
+  // A link made for Sepolia must be read against Sepolia, not against this browser's own Demo Mode records.
+  const linkedNetwork = readShareNetwork(fragment);
   // Text the visitor typed or opened. It wins over the link, and `null` means "still showing the link's text".
   const [edited, setEdited] = useState<string | null>(null);
   const [typedHash, setTypedHash] = useState("");
@@ -66,6 +69,20 @@ export function VerifyView() {
   return (
     <div>
       <p className="hint">Checking {where}. Change this with the Demo and Sepolia buttons in the header.</p>
+
+      {linkedNetwork === "sepolia" && session.mode !== "wallet" ? (
+        <Notice tone="warn">
+          This link was made for the registry on Ethereum Sepolia, but you are looking at Demo Mode records, which exist only in this
+          browser. A real record will show as not recorded here.{" "}
+          {session.chainConfigured ? (
+            <button type="button" className="link-button" onClick={() => session.setMode("wallet")}>
+              Switch to Sepolia
+            </button>
+          ) : (
+            "No Sepolia registry is configured on this site."
+          )}
+        </Notice>
+      ) : null}
 
       {fromLink ? (
         <Notice tone="ok">
@@ -120,6 +137,9 @@ export function VerifyView() {
             </Notice>
           )}
           <RecordStatus record={record} account={session.account} busy={busy} onSign={() => void sign()} />
+          {session.mode === "wallet" && !session.account && record.signed.some((done) => !done) ? (
+            <Notice tone="info">To sign, connect the wallet that is named as a party, using the button in the header.</Notice>
+          ) : null}
           {tx ? <TxLine hash={tx.hash} source={tx.source} /> : null}
         </>
       ) : null}

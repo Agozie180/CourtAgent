@@ -23,11 +23,20 @@ export function decodeShareText(encoded: string): string | null {
   }
 }
 
-export function buildVerifyPath(text: string): string {
-  return `/verify#d=${encodeShareText(text)}`;
+/**
+ * The verify link for a document. When the record is on Ethereum Sepolia the link says so (`&net=sepolia`), so the person
+ * who opens it in a fresh browser is looking at the same registry and not at their own empty Demo Mode.
+ */
+export function buildVerifyPath(text: string, network?: "sepolia" | "demo"): string {
+  return `/verify#d=${encodeShareText(text)}${network === "sepolia" ? "&net=sepolia" : ""}`;
 }
 
 export function readShareFromHash(hash: string): string | null {
   const match = hash.match(/(?:^#|&)d=([A-Za-z0-9_-]+)/);
   return match ? decodeShareText(match[1]) : null;
+}
+
+/** "sepolia" when the link was made for the Sepolia registry, otherwise null. */
+export function readShareNetwork(hash: string): "sepolia" | null {
+  return /(?:^#|&)net=sepolia(?:&|$)/.test(hash) ? "sepolia" : null;
 }

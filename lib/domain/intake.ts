@@ -22,6 +22,8 @@ export type IntakeFields = {
 
 export type IntakeKey = keyof IntakeFields;
 
+const MAX_NAIRA = 10_000_000_000;
+
 export const emptyIntake = (): IntakeFields => ({
   state: null,
   budgetNgn: null,
@@ -389,7 +391,7 @@ export function sanitizeFields(input: unknown): Partial<IntakeFields> {
   if (advance !== null) out.advanceMonths = advance;
   const caution = num(raw.cautionNgn, 0, 10_000_000_000);
   if (caution !== null) out.cautionNgn = caution;
-  if (typeof raw.tenancyType === "string" && raw.tenancyType in TENANCY_TYPE_LABEL) {
+  if (typeof raw.tenancyType === "string" && Object.hasOwn(TENANCY_TYPE_LABEL, raw.tenancyType)) {
     out.tenancyType = raw.tenancyType as TenancyType;
   }
   if (typeof raw.startDate === "string" && parseDate(raw.startDate)) out.startDate = parseDate(raw.startDate);
@@ -402,10 +404,28 @@ export function sanitizeFields(input: unknown): Partial<IntakeFields> {
 export function answerProblem(key: IntakeKey | null, message: string): string | null {
   if (key === "landlordName" || key === "tenantName") return nameProblem(message);
   if (key === "state" && !findStateInText(message)) return "I could not find a Nigerian state in that. Type the state, for example Lagos, Enugu or Abuja.";
-  if ((key === "budgetNgn" || key === "annualRentNgn") && parseMoney(message) === null) return "I need an amount in naira, for example 1.2 million or 800k.";
+  if (key === "budgetNgn" || key === "annualRentNgn") {
+    const amount = parseMoney(message);
+    if (amount === null) return "I need an amount in naira, for example 1.2 million or 800k.";
+    if (amount < 1) return "The amount must be more than zero.";
+    if (amount > MAX_NAIRA) return "That amount is too large. Check the zeros.";
+  }
+  if (key === "cautionNgn") {
+    const amount = parseMoney(message);
+    if (amount !== null && amount > MAX_NAIRA) return "That amount is too large. Check the zeros.";
+  }
+  if (key === "bedrooms") {
+    const count = parseCount(message);
+    if (count !== null && (count < 1 || count > 20)) return "Bedrooms must be a number from 1 to 20.";
+  }
   if (key === "startDate" && !parseDate(message)) return "I need a real date, for example 2026-12-01.";
   if (key === "tenancyType" && !parseTenancyType(message)) return "Choose yearly, monthly, quarterly, half-yearly, at will or fixed term.";
-  if ((key === "advanceMonths" || key === "durationMonths") && parseMonths(message) === null) return "I need a number of months or years, for example 12 months or 1 year.";
+  if (key === "advanceMonths" || key === "durationMonths") {
+    const months = parseMonths(message);
+    if (months === null) return "I need a number of months or years, for example 12 months or 1 year.";
+    if (key === "advanceMonths" && (months < 1 || months > 120)) return "Advance rent must be between 1 and 120 months. Type 1 if rent is paid monthly.";
+    if (key === "durationMonths" && (months < 1 || months > 240)) return "The tenancy must last between 1 and 240 months.";
+  }
   return null;
 }
 

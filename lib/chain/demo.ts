@@ -18,14 +18,37 @@ export const emptyDemoState = (): DemoState => ({ counter: 0, records: {} });
 
 export type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
+function isStoredRecord(value: unknown): value is StoredRecord {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.docHash === "string" &&
+    typeof record.creator === "string" &&
+    typeof record.createdAt === "number" &&
+    typeof record.fullySignedAt === "number" &&
+    typeof record.kind === "string" &&
+    Array.isArray(record.parties) &&
+    record.parties.length > 0 &&
+    record.parties.every((party) => typeof party === "string") &&
+    Array.isArray(record.signed) &&
+    record.signed.length === record.parties.length &&
+    record.signed.every((flag) => typeof flag === "boolean")
+  );
+}
+
 export function loadDemoState(storage: StorageLike | null): DemoState {
   if (!storage) return emptyDemoState();
   try {
     const raw = storage.getItem(DEMO_STORAGE_KEY);
     if (!raw) return emptyDemoState();
     const parsed = JSON.parse(raw) as DemoState;
-    if (!parsed || typeof parsed.counter !== "number" || typeof parsed.records !== "object") return emptyDemoState();
-    return parsed;
+    if (!parsed || typeof parsed.counter !== "number" || !parsed.records || typeof parsed.records !== "object") return emptyDemoState();
+    // Keep only well-formed records, so a corrupted or hand-edited entry cannot crash a page that reads the ledger.
+    const records: DemoState["records"] = {};
+    for (const [hash, record] of Object.entries(parsed.records)) {
+      if (isStoredRecord(record)) records[hash] = record;
+    }
+    return { counter: parsed.counter, records };
   } catch {
     return emptyDemoState();
   }

@@ -3,7 +3,7 @@ import { formatNgn } from "./intake";
 import { DISCLAIMER, TENANCY_TYPE_LABEL, type TenancyType } from "./lagos-tenancy";
 import { stateLabel } from "./jurisdiction";
 import { legalAidNote } from "./legal-aid";
-import { plural } from "./text";
+import { oneLine, plural } from "./text";
 import { evictionNoteFor } from "./tenancy-rules";
 
 export type RecordLocation = "sepolia" | "demo";
@@ -39,13 +39,25 @@ export type ExitLetterInput = {
   letterDate: string; // YYYY-MM-DD
 };
 
-export function buildExitResponseLetter(input: ExitLetterInput): LetterResult {
+export function buildExitResponseLetter(raw: ExitLetterInput): LetterResult {
+  // Typed free text goes on one line so a line break cannot add a paragraph the person did not write.
+  const input: ExitLetterInput = {
+    ...raw,
+    tenantName: oneLine(raw.tenantName),
+    landlordName: oneLine(raw.landlordName),
+    propertyAddress: oneLine(raw.propertyAddress),
+    demandSummary: oneLine(raw.demandSummary),
+  };
   const end = endDate(input.startDate, input.durationMonths);
   const notice = noticeText(input);
   const advance = Math.round((input.annualRentNgn / 12) * input.advanceMonths);
   const record = input.fullySigned
     ? `A record of this agreement, signed by both of us, is ${recordPhrase(input.recordLocation)} under the hash ${input.agreementHash}.`
-    : `A record of this agreement is ${recordPhrase(input.recordLocation)} under the hash ${input.agreementHash}.`;
+    : `A record of this agreement is ${recordPhrase(input.recordLocation)} under the hash ${input.agreementHash}. It has not yet been signed by everyone named in it.`;
+  // The letter must not say "we signed" before everyone has, or claim a continuing right after the term has run out.
+  const agreementWord = input.fullySigned ? "We signed" : "A written tenancy agreement was prepared for";
+  const termEnded = input.letterDate > end;
+  const possession = termEnded ? "I remain in possession of the property" : "I remain in lawful possession of the property";
 
   const letter = `${input.letterDate}
 
@@ -56,17 +68,17 @@ RE: MY TENANCY AT ${input.propertyAddress.toUpperCase()}: RESPONSE TO YOUR DEMAN
 
 Dear ${input.landlordName},
 
-1. We signed a tenancy agreement for the property above. It is a ${TENANCY_TYPE_LABEL[input.tenancyType]} that started on ${input.startDate} and runs to ${end}. I paid ${plural(input.advanceMonths, "month")} of rent in advance, which is ${formatNgn(advance)}. ${record}
+1. ${agreementWord} a tenancy agreement for the property above. It is a ${TENANCY_TYPE_LABEL[input.tenancyType]} that started on ${input.startDate} and runs to ${end}. I paid ${plural(input.advanceMonths, "month")} of rent in advance, which is ${formatNgn(advance)}. ${record}
 
 2. On ${input.demandDate} you ${input.demandSummary.trim().replace(/[.]+$/, "")}. I did not agree to leave on that basis.
 
-3. Our agreement says that ${
+3. ${input.fullySigned ? "Our agreement" : "The agreement"} says that ${
     input.tenancyType === "fixed_term" && !input.agreedNotice
       ? "no notice is needed once the fixed term ends"
       : `the notice to end the tenancy is ${notice}`
   }. You have not given me a valid notice to quit that meets this.
 
-4. ${evictionNoteFor(input.state)} Until that process is completed I remain in lawful possession of the property and I will keep paying rent as we agreed.
+4. ${evictionNoteFor(input.state)} Until that process is completed ${possession} and I will keep paying rent as we agreed.
 
 5. I ask you to withdraw your demand in writing within 7 days. Please do not change the locks, remove my belongings, cut off water or electricity, or threaten or harass me or my family. Any such action would be unlawful, and I will take advice on my remedies.
 
@@ -81,6 +93,12 @@ ${input.tenantName}
 ${DISCLAIMER}`;
 
   const notes = [
+    ...(input.fullySigned
+      ? []
+      : ["Not everyone named in the agreement has signed it yet. Ask the landlord to sign, and keep your rent receipts: a court will look at what was actually agreed and paid."]),
+    ...(termEnded
+      ? [`The end date of the tenancy (${end}) has passed. Your position after that date depends on the law and on what the landlord accepted, for example rent. Speak to a lawyer before you send this letter.`]
+      : []),
     "Send this letter in a way you can prove: hand delivery with a signed acknowledgement, email, or a message you screenshot. Keep a copy.",
     "Keep your signed agreement, your rent receipts and proof of every payment together in one safe place.",
     "Do not leave the property or sign anything because of pressure or threats. Ask for any demand in writing.",
@@ -112,7 +130,14 @@ export type WidowLetterInput = {
   letterDate: string; // YYYY-MM-DD
 };
 
-export function buildWidowLetter(input: WidowLetterInput): LetterResult {
+export function buildWidowLetter(raw: WidowLetterInput): LetterResult {
+  const input: WidowLetterInput = {
+    ...raw,
+    widowName: oneLine(raw.widowName),
+    deceasedName: oneLine(raw.deceasedName),
+    propertyDescription: oneLine(raw.propertyDescription),
+    addressedTo: oneLine(raw.addressedTo),
+  };
   const legalLines: string[] = [
     "A widow's right to stay in her late husband's home, and her share of his estate, depend on the law that applies to the estate. I am taking legal advice on this and I ask that nothing is done to remove me until it is settled.",
   ];

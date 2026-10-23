@@ -346,7 +346,7 @@ export function RentFlow() {
     }
   }
 
-  const shareUrl = agreementText && origin ? `${origin}${buildVerifyPath(agreementText)}` : "";
+  const shareUrl = agreementText && origin ? `${origin}${buildVerifyPath(agreementText, (record?.source ?? session.registry.source) === "chain" ? "sepolia" : undefined)}` : "";
 
   // ---------------------------------------------------------------- step 5
   const dateIssues = terms ? exitLetterDateIssues({ startDate: terms.startDate, demandDate, letterDate }) : [];

@@ -2,17 +2,24 @@ import {
   createPublicClient,
   createWalletClient,
   custom,
+  fallback,
   getAddress,
   http,
   type Address,
+  type EIP1193Provider,
   type Hex,
+  type PublicClient,
 } from "viem";
 import { documentRegistryAbi } from "./abi";
-import { CHAIN, RPC_URL, getRegistryAddress } from "./config";
+import { CHAIN, RPC_URL, getRegistryAddress, rpcUrls, txUrl } from "./config";
 import type { DocumentKind, RegistryBackend, RegistryRecord, TxResult } from "./types";
 
-export function createReadClient() {
-  return createPublicClient({ chain: CHAIN, transport: http(RPC_URL) });
+export function createReadClient(): PublicClient {
+  // Several public nodes in a row: if the first is slow or rate-limited, the next answers.
+  return createPublicClient({
+    chain: CHAIN,
+    transport: fallback(rpcUrls().map((url) => http(url, { timeout: 15_000, retryCount: 1 }))),
+  });
 }
 
 /** Ask the wallet (MetaMask or any EIP-1193 wallet) for an account and switch it to Sepolia. */
@@ -45,27 +52,49 @@ export async function connectInjectedWallet(): Promise<Address> {
   return getAddress(accounts[0]);
 }
 
+type Receipt = { status: "success" | "reverted" };
+
+/** A transaction can be mined and still fail. Without this check the app would say "recorded" for a record that does not exist. */
+export function assertMined(receipt: Receipt, hash: string): void {
+  if (receipt.status !== "success") {
+    throw new Error(`The transaction was mined but failed, so nothing was recorded. See ${txUrl(hash)}`);
+  }
+}
+
+export type OnChainOptions = {
+  /** Test seam: a ready read client. */
+  publicClient?: PublicClient;
+  /** Test seam: the wallet to sign with. Defaults to the browser's injected wallet. */
+  ethereum?: EIP1193Provider;
+  /** Test seam: the contract address. Defaults to the configured one. */
+  address?: Address;
+};
+
 export class OnChainRegistry implements RegistryBackend {
   readonly source = "chain" as const;
-  private readonly publicClient = createReadClient();
+  private readonly publicClient: PublicClient;
 
-  constructor(private readonly connectedAccount: Address | null) {}
+  constructor(
+    private readonly connectedAccount: Address | null,
+    private readonly options: OnChainOptions = {},
+  ) {
+    this.publicClient = options.publicClient ?? createReadClient();
+  }
 
   account(): Address | null {
     return this.connectedAccount;
   }
 
   private contractAddress(): Address {
-    const address = getRegistryAddress();
-    if (!address) throw new Error("NEXT_PUBLIC_REGISTRY_ADDRESS is not set. Deploy the contract or use Demo Mode.");
+    const address = this.options.address ?? getRegistryAddress();
+    if (!address) throw new Error("No registry contract is configured. Set NEXT_PUBLIC_REGISTRY_ADDRESS or use Demo Mode.");
     return address;
   }
 
   private walletClient() {
-    if (typeof window === "undefined" || !window.ethereum || !this.connectedAccount) {
-      throw new Error("Connect your wallet first.");
-    }
-    return createWalletClient({ account: this.connectedAccount, chain: CHAIN, transport: custom(window.ethereum) });
+    const ethereum = this.options.ethereum ?? (typeof window !== "undefined" ? window.ethereum : undefined);
+    if (!ethereum || !this.connectedAccount) throw new Error("Connect your wallet first.");
+    return createWalletClient({ account: this.connectedAccount, chain: CHAIN, transport: custom(ethereum as EIP1193Provider) });
   }
 
   async register(docHash: Hex, kind: DocumentKind, parties: Address[]): Promise<TxResult> {
@@ -76,7 +105,7 @@ export class OnChainRegistry implements RegistryBackend {
       functionName: "register",
       args: [docHash, kind, parties],
     });
-    await this.publicClient.waitForTransactionReceipt({ hash });
+    assertMined(await this.publicClient.waitForTransactionReceipt({ hash }), hash);
     return { hash, source: "chain" };
   }
 
@@ -88,19 +117,21 @@ export class OnChainRegistry implements RegistryBackend {
       functionName: "sign",
       args: [docHash],
     });
-    await this.publicClient.waitForTransactionReceipt({ hash });
+    assertMined(await this.publicClient.waitForTransactionReceipt({ hash }), hash);
     return { hash, source: "chain" };
   }
 
   async getRecord(docHash: Hex): Promise<RegistryRecord | null> {
-    return readChainRecord(docHash);
+    return readChainRecord(docHash, this.publicClient, this.contractAddress());
   }
 }
 
-export async function readChainRecord(docHash: Hex): Promise<RegistryRecord | null> {
-  const address = getRegistryAddress();
-  if (!address) throw new Error("NEXT_PUBLIC_REGISTRY_ADDRESS is not set.");
-  const client = createReadClient();
+export async function readChainRecord(
+  docHash: Hex,
+  client: PublicClient = createReadClient(),
+  address: Address | null = getRegistryAddress(),
+): Promise<RegistryRecord | null> {
+  if (!address) throw new Error("No registry contract is configured.");
   const registered = await client.readContract({
     address,
     abi: documentRegistryAbi,

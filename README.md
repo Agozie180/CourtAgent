@@ -106,7 +106,7 @@ checks and not an accuracy claim (see the held-out rows).
 
 | Claim | Number | Reproduce with |
 |---|---|---|
-| Unit and UI tests | 75 passing (12 files) | `npm test` |
+| Unit, UI, flow and API tests | 138 passing (17 files) | `npm test` |
 | Contract tests | 11 passing | `npm run contracts:test` |
 | Gas: register, 2 parties | 140,926 | `npm run contracts:test` (prints a `GAS` line) |
 | Gas: first signature / last signature | 75,979 / 62,960 | same |
@@ -156,7 +156,7 @@ Copy `.env.example` to `.env.local` and add `ANTHROPIC_API_KEY` and/or `OPENAI_A
 offline rules engine. The keys are read on the server only, so never give them a `NEXT_PUBLIC_` prefix. On Vercel, add
 them under Settings, Environment Variables, then **redeploy** (a running deployment does not see new variables). The page
 says which mode it is really in; open `/api/status` to see it, including a hint if a key is stored under a name that is
-not read. Set `NEXT_PUBLIC_REPO_PUBLIC=true` to show the "Open source" link once the repo is public.
+not read. A fresh clone already points at the committed Sepolia deployment, so `NEXT_PUBLIC_REGISTRY_ADDRESS` is only needed to use a different contract. Set `NEXT_PUBLIC_REPO_PUBLIC=true` to show the "Open source" link once the repo is public.
 
 ### Optional: live on Ethereum Sepolia
 
@@ -184,13 +184,16 @@ No computer to run it on? In GitHub, open Settings, Secrets and variables, Actio
   A 2025 Lagos tenancy Bill was not confirmed, so the 2011 Law is used.
 - **The text-pattern scam rules are brittle** (3 of 10 on unseen wording, above). A Low result never proves a landlord or
   property is genuine. A hash proves a text existed and who signed it, not that the landlord owns the property.
-- **No live Sepolia deployment is claimed here yet**, and **wallet mode and the AI providers have not been tested with a
-  real wallet or real keys.** Only the local Hardhat chain and mocked HTTP were used.
+- **The contract is deployed on Sepolia** (see the link at the top and `deployments/sepolia.json`), and the app reads it
+  with no setup. **Wallet mode and the AI providers have still not been tested with a real wallet or real keys.** Only
+  the local Hardhat chain and mocked HTTP were used, and the build environment could not reach Sepolia to re-check it.
+  Run `npm run verify:live` to confirm the contract yourself.
 - **Demo Mode records live in your browser** and are not tamper-proof.
 - **Pasted text is processed by the server for each request.** In the full flow, text you paste for a check or an
   explanation goes to this app's API routes, and on to Anthropic or OpenAI only if you configured a key. The app does not
   store or log it. The home-page demos and `/verify` hashing run entirely in your browser.
 - The rate limiter is in memory and per instance. Use a shared store for a real deployment.
+- The deployed contract's `DocumentFullySigned` event names a parameter `at`, which newer Solidity warns will become a keyword. Renaming it changes the ABI and needs a redeploy, so it was left as is.
 - The contract is unaudited and the registry has no way to revoke or amend a record: a mistake means a new document.
 - Legal aid bodies are named (Legal Aid Council, FIDA Nigeria, Lagos Office of the Public Defender) but their contact
   details are not verified here.

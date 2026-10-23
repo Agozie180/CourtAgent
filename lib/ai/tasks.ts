@@ -49,7 +49,8 @@ export async function runIntake(
   env: Env = process.env,
   fetchImpl: FetchLike = fetch,
 ): Promise<IntakeResult> {
-  let update: Partial<IntakeFields> = parseIntakeOffline(message, expected);
+  // The offline parser is held to the same limits as model output (no 0 bedrooms, no 500-bedroom house, no zero rent).
+  let update: Partial<IntakeFields> = sanitizeFields(parseIntakeOffline(message, expected));
   let provider: ProviderName = "offline";
 
   const errors: string[] = [];
