@@ -1,6 +1,6 @@
 # 2-minute demo script
 
-Start with `npm run dev` (or the hosted URL). Stay in Demo Mode. Lead with the unfakeable moment, then show the guardrails.
+Start with `npm run dev` (or the hosted URL, https://court-agent.vercel.app/). Stay in Demo Mode. Lead with the unfakeable moment, then show the guardrails.
 
 1. **0:00 The point (15s).** On the home page press **Change the rent to 1,300,000**. The stamp flips from green
    RECORDED to red NOT RECORDED and the fingerprint changes. Say: "AI explains. Rules decide. A fingerprint makes a changed word detectable."
@@ -18,7 +18,8 @@ Record several takes. Narrate step 1 slowly: it is the moment a judge cannot fak
 ## Submission checklist
 
 - [ ] `npm run deploy:sepolia`, address in `NEXT_PUBLIC_REGISTRY_ADDRESS`, `deployments/sepolia.json` committed, `npm run verify:live` passes, Etherscan link in README
-- [ ] Hosted URL in README and in the DoraHacks form
+- [x] Hosted URL in README (https://court-agent.vercel.app/)
+- [ ] Hosted URL in the DoraHacks form
 - [ ] Demo video link in README
 - [ ] Try real Anthropic and OpenAI keys once; confirm the OpenAI model name
 - [ ] Try Sepolia mode with MetaMask once

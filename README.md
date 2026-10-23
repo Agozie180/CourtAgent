@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| **Try it** | Live demo: _add the hosted URL_ (or `npm ci && npm run dev`, 30 seconds, no keys) |
+| **Try it** | Live demo: [court-agent.vercel.app](https://court-agent.vercel.app/) (or `npm ci && npm run dev`, 30 seconds, no keys) |
 | **Demo video** | _add link_ (script: [`docs/DEMO.md`](docs/DEMO.md)) |
 | **Contract on Ethereum Sepolia** | [0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff](https://sepolia.etherscan.io/address/0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff) |
 | **Verify page** | `/verify` in the app. Paste any agreement text and see if it was recorded. |

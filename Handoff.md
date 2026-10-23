@@ -1,6 +1,6 @@
 # Handoff: CourtAgent (BLI Legal Tech Hackathon 2)
 
-Last updated: 2026-10-23 (Lagos time), third pass: full root audit, see AUDIT.md F-21 to F-28 and lib/domain/audit2.test.ts. 138 app tests, 11 contract tests, typecheck, lint and build pass. The contract is deployed on Sepolia (0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff, block 11931735) and a fresh clone now uses it by default. The audit environment could NOT reach Sepolia, so run `npm run verify:live` yourself. Still untested: real MetaMask, real AI keys, hosting, demo video, lawyer review.
+Last updated: 2026-10-23 (Lagos time), third pass: full root audit, see AUDIT.md F-21 to F-28 and lib/domain/audit2.test.ts. 138 app tests, 11 contract tests, typecheck, lint and build pass. The contract is deployed on Sepolia (0xd64d1fd08e81bbf5aaa194a138d005aa4d4e75ff, block 11931735) and a fresh clone now uses it by default. The audit environment could NOT reach Sepolia, so run `npm run verify:live` yourself. Still untested: real MetaMask, real AI keys, demo video (hosted at https://court-agent.vercel.app/ since 2026-10-23), lawyer review.
 Repo: https://github.com/Agozie180/CourtAgent (branch main). Local working copy: /home/claude/work/CourtAgent in the build session.
 
 ## Hackathon
