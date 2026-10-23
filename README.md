@@ -106,7 +106,7 @@ checks and not an accuracy claim (see the held-out rows).
 
 | Claim | Number | Reproduce with |
 |---|---|---|
-| Unit, UI, flow and API tests | 138 passing (17 files) | `npm test` |
+| Unit, UI, flow and API tests | 159 passing (19 files) | `npm test` |
 | Contract tests | 11 passing | `npm run contracts:test` |
 | Gas: register, 2 parties | 140,926 | `npm run contracts:test` (prints a `GAS` line) |
 | Gas: first signature / last signature | 75,979 / 62,960 | same |
@@ -116,7 +116,7 @@ checks and not an accuracy claim (see the held-out rows).
 | **Scam rules, held-out set (written after the rules were frozen)** | **3 of 10 unseen scams flagged, 2 of 8 honest messages wrongly flagged, 0 honest rated High** | `npm run measure` |
 
 The held-out row does not flatter us, and we are leaving it in. Keyword rules are brittle on new wording. That is why the
-seven yes/no questions, which do not depend on wording, carry most of the risk score, why an AI note can add a warning
+six or seven yes/no questions (the seventh appears only when an agent is involved), which do not depend on wording, carry most of the risk score, why an AI note can add a warning
 but never a verdict, and why a Low result is always shown with "this does not prove it is genuine". Details in
 [`AUDIT.md`](AUDIT.md).
 
@@ -195,8 +195,10 @@ No computer to run it on? In GitHub, open Settings, Secrets and variables, Actio
 - The rate limiter is in memory and per instance. Use a shared store for a real deployment.
 - The deployed contract's `DocumentFullySigned` event names a parameter `at`, which newer Solidity warns will become a keyword. Renaming it changes the ABI and needs a redeploy, so it was left as is.
 - The contract is unaudited and the registry has no way to revoke or amend a record: a mistake means a new document.
-- Legal aid bodies are named (Legal Aid Council, FIDA Nigeria, Lagos Office of the Public Defender) but their contact
-  details are not verified here.
+- Legal aid: the app links the official websites of the Legal Aid Council of Nigeria, FIDA Nigeria and the Lagos State
+  Office of the Public Defender, and shows a phone number only where that organisation's own page prints one (checked
+  2026-10-23). The Lagos number is the "Free Legal Line" in the Ministry of Justice footer, not labelled for the Public
+  Defender alone. Numbers change: confirm on the official site. Letters name the bodies but print no numbers.
 
 ## Disclosures
 

@@ -37,3 +37,30 @@ export function findStateInText(text: string): NigerianState | null {
   }
   return null;
 }
+
+/**
+ * Every state named anywhere in free text (for example an address that says "Surulere, Lagos"). Several can match
+ * because street names reuse state names ("Delta Street, Lagos"), so a caller that wants to catch a mismatch should
+ * ask whether the state it expects is among them, not whether the first match equals it.
+ */
+export function statesMentioned(text: string): NigerianState[] {
+  const lower = text.toLowerCase();
+  const found = new Set<NigerianState>();
+  for (const [alias, state] of Object.entries(ALIASES)) {
+    if (new RegExp(`\\b${alias}\\b`).test(lower)) found.add(state);
+  }
+  if (/\bfct\b/.test(lower)) found.add("FCT");
+  for (const state of NIGERIAN_STATES) {
+    if (state === "FCT") continue;
+    if (new RegExp(`\\b${state.toLowerCase()}\\b`).test(lower)) found.add(state);
+  }
+  return [...found];
+}
+
+/** A warning when the address names states but not the one chosen for the legal notice, else null. */
+export function stateMismatchWarning(address: string, selected: string): string | null {
+  const named = statesMentioned(address);
+  if (named.length === 0 || named.includes(selected as NigerianState)) return null;
+  const list = named.map(stateLabel).join(" and ");
+  return `The property address you recorded mentions ${list}, but the state chosen for this notice is ${stateLabel(selected)}. The notice and the legal-aid details follow the state you choose here, so check that it is the state where the property is.`;
+}

@@ -213,3 +213,14 @@ export function exitLetterDateIssues(input: { startDate: string; demandDate: str
   }
   return issues;
 }
+
+/**
+ * The reply speaks to the landlord ("On that date you ..."), so what the landlord did must be written as "you".
+ * "He said he will change the lock" would make the letter jump between "you" and "he". Returns a message when the
+ * text talks about the landlord in the third person, else null.
+ */
+export function demandPersonIssue(summary: string): string | null {
+  const match = summary.match(/\b(he|she|him|his|hers?|himself|herself|they|them|their|the landlord|the landlady|landlord|landlady|the owner|the agent|my landlord)\b/i);
+  if (!match) return null;
+  return `Write what the landlord did as "you", because this letter speaks to the landlord. Replace "${match[0]}" with "you" or "your". For example: told me to pack out within two weeks and said you will change the lock.`;
+}

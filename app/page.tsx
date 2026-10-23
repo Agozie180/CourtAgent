@@ -54,13 +54,12 @@ export default function Home() {
         <div className="wrap">
           <h2>Try the other half: is this landlord message a scam?</h2>
           <p>
-            Pick an example or paste a real message. The rating comes from fixed rules you can read in the code, and each
-            warning says why.
+            Pick an example or paste a real message. The rating comes from fixed rules, and each warning says why.
           </p>
           <div className="try-grid">
             <ScamDemo />
             <div>
-              <h3>Three promises, each one tested</h3>
+              <h3>Three promises</h3>
               <ul className="explain-list">
                 <li>
                   <AiText
@@ -76,7 +75,11 @@ export default function Home() {
                 </li>
                 <li>One changed word gives a different fingerprint, so a record cannot be quietly rewritten.</li>
               </ul>
-              <p className="hint">The proof is in the test files, listed in the README.</p>
+              {REPO_PUBLIC ? (
+                <p className="hint">
+                  Read how it works in the <Link href="https://github.com/Agozie180/CourtAgent">open-source repository</Link>.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -95,7 +98,7 @@ export default function Home() {
             <li>
               <div>
                 <h3>Check the landlord before you pay</h3>
-                <p>Paste what the landlord sent you and answer seven yes or no questions. You get a Low, Medium or High warning and the reason for each flag.</p>
+                <p>Paste what the landlord sent you and answer six or seven yes or no questions (the seventh appears only if you are dealing with an agent). You get a Low, Medium or High warning and the reason for each flag.</p>
               </div>
             </li>
             <li>

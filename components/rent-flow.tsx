@@ -24,12 +24,12 @@ import {
   type IntakeKey,
 } from "@/lib/domain/intake";
 import { stateLabel } from "@/lib/domain/jurisdiction";
-import { buildExitResponseLetter, exitLetterDateIssues } from "@/lib/domain/letters";
+import { buildExitResponseLetter, demandPersonIssue, exitLetterDateIssues } from "@/lib/domain/letters";
 import { plural } from "@/lib/domain/text";
 import type { RiskFlag, RiskLevel } from "@/lib/domain/risk";
 import { ruleFor } from "@/lib/domain/tenancy-rules";
 import { useModeNote } from "./ai-text";
-import { CopyButton, DocumentSheet, HashLine, IssueList, Notice, StateBanner, TxLine, errorMessage } from "./bits";
+import { CopyButton, DocumentSheet, HashLine, IssueList, LegalAidList, Notice, StateBanner, TxLine, errorMessage } from "./bits";
 import { RecordStatus } from "./record-status";
 import { useSession } from "./session-provider";
 
@@ -350,8 +350,10 @@ export function RentFlow() {
 
   // ---------------------------------------------------------------- step 5
   const dateIssues = terms ? exitLetterDateIssues({ startDate: terms.startDate, demandDate, letterDate }) : [];
+  const personIssue = demandSummary.trim() ? demandPersonIssue(demandSummary) : null;
   const letter = useMemo(() => {
     if (!terms || !hash || !record || !demandSummary.trim() || !demandDate || !letterDate) return null;
+    if (demandPersonIssue(demandSummary)) return null;
     if (exitLetterDateIssues({ startDate: terms.startDate, demandDate, letterDate }).length > 0) return null;
     return buildExitResponseLetter({
       state: terms.state,
@@ -506,7 +508,7 @@ export function RentFlow() {
             </label>
             <textarea id="doc-text" value={documentText} onChange={(event) => setDocumentText(event.target.value)} maxLength={8000} />
           </div>
-          <div role="group" aria-label="Seven questions">
+          <div role="group" aria-label="Questions about the landlord">
             {requiredAnswers.map((key) => (
               <div className="check-row" key={key}>
                 <span>{ANSWER_QUESTIONS[key]}</span>
@@ -748,17 +750,18 @@ export function RentFlow() {
           </div>
           <div className="field">
             <label htmlFor="demand-summary">
-              What did the landlord say or do? <span className="hint">Finish the sentence: On that date, the landlord…</span>
+              What did the landlord say or do? <span className="hint">Finish the sentence: On that date, you… (write to the landlord as &quot;you&quot;)</span>
             </label>
             <textarea
               id="demand-summary"
               value={demandSummary}
               onChange={(event) => setDemandSummary(event.target.value)}
-              placeholder="told me to pack out within two weeks and said he will change the lock"
+              placeholder="told me to pack out within two weeks and said you will change the lock"
               maxLength={600}
             />
           </div>
           {dateIssues.length > 0 ? <IssueList title="Check the dates" items={dateIssues} /> : null}
+          {personIssue ? <IssueList title="Write it to the landlord" items={[personIssue]} /> : null}
           {letter ? (
             <>
               <DocumentSheet title="Reply to landlord" text={letter.letter} />
@@ -770,9 +773,10 @@ export function RentFlow() {
               </ul>
               <p className="hint">The tenancy was for {formatNgn(terms.annualRentNgn)} a year. Keep every receipt.</p>
             </>
-          ) : dateIssues.length === 0 ? (
+          ) : dateIssues.length === 0 && !personIssue ? (
             <Notice>Describe what the landlord said or did to see your letter.</Notice>
           ) : null}
+          <LegalAidList state={terms.state} />
         </div>
       ) : null}
     </div>

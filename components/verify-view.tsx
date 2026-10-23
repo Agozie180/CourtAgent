@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import type { Hex } from "viem";
-import { hashDocument, isDocHash, shortHash } from "@/lib/hash/document";
+import { hashDocument, hashProblem, isDocHash, shortHash } from "@/lib/hash/document";
 import { comparePartiesToText } from "@/lib/hash/parties";
 import { readShareFromHash, readShareNetwork } from "@/lib/share";
 import { useRegistryRecord, useSavedDocuments } from "@/lib/hooks";
@@ -35,6 +35,8 @@ export function VerifyView() {
   const text = edited ?? linkedText ?? "";
   const fromLink = edited === null && linkedText !== null;
 
+  // A typed fingerprint is checked for its shape (0x and 64 hex characters) before any lookup is made.
+  const typedProblem = hashProblem(typedHash);
   const hash = useMemo<Hex | null>(() => {
     if (text.trim()) return hashDocument(text);
     return isDocHash(typedHash) ? (typedHash.trim() as Hex) : null;
@@ -113,8 +115,21 @@ export function VerifyView() {
           <label htmlFor="verify-hash">
             Or look up a fingerprint <span className="hint">66 characters starting with 0x</span>
           </label>
-          <input id="verify-hash" type="text" value={typedHash} onChange={(event) => setTypedHash(event.target.value.trim())} placeholder="0x…" spellCheck={false} />
-          {typedHash && !isDocHash(typedHash) ? <p className="hint">That is not a valid fingerprint yet.</p> : null}
+          <input
+            id="verify-hash"
+            type="text"
+            value={typedHash}
+            onChange={(event) => setTypedHash(event.target.value.trim())}
+            placeholder="0x…"
+            spellCheck={false}
+            aria-invalid={typedProblem ? true : undefined}
+            aria-describedby={typedProblem ? "verify-hash-error" : undefined}
+          />
+          {typedProblem ? (
+            <p id="verify-hash-error" className="notice error" role="alert">
+              {typedProblem} Nothing was looked up.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

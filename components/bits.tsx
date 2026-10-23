@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { shortHash } from "@/lib/hash/document";
 import { addressUrl, txUrl } from "@/lib/chain/config";
 import { ruleFor } from "@/lib/domain/tenancy-rules";
+import { LEGAL_AID_VERIFIED_ON, legalAidFor } from "@/lib/domain/legal-aid";
 
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
@@ -129,4 +130,42 @@ export function errorMessage(error: unknown): string {
   if (text.includes("AlreadySigned")) return "This account has already signed.";
   if (text.includes("NotRegistered")) return "This document has not been recorded yet.";
   return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+}
+
+/** Official websites, and phone numbers where an official page prints one, for free legal help in the chosen state. */
+export function LegalAidList({ state }: { state: string }) {
+  const groups = legalAidFor(state);
+  return (
+    <section className="legal-aid" aria-label="Free legal help">
+      <h3>Free legal help</h3>
+      <ul className="explain-list">
+        {groups.map((group) => (
+          <li key={group.name}>
+            <strong>{group.name}.</strong> {group.about}{" "}
+            <a href={group.url} target="_blank" rel="noreferrer" aria-label={`${group.name}: official website`}>
+              Official website
+            </a>
+            {group.contactUrl ? (
+              <>
+                {" · "}
+                <a href={group.contactUrl} target="_blank" rel="noreferrer" aria-label={`${group.name}: contact page`}>
+                  Contact page
+                </a>
+              </>
+            ) : null}
+            {group.phones.map((phone) => (
+              <span key={phone.number} className="legal-aid-phone">
+                {" "}
+                {phone.label}: <a href={`tel:${phone.number.replace(/\s+/g, "")}`} aria-label={`Call ${group.name} on ${phone.number}`}>{phone.number}</a>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+      <p className="hint">
+        Links and numbers were copied from each organisation&apos;s own site on {LEGAL_AID_VERIFIED_ON}. Numbers change, so
+        confirm on the official site before you rely on one.
+      </p>
+    </section>
+  );
 }

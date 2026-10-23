@@ -138,7 +138,7 @@ export function ScamDemo() {
               </ul>
             ) : (
               <p className="hint">
-                No warning pattern matched. That does not prove the message is honest. The full check also asks seven
+                No warning pattern matched. That does not prove the message is honest. The full check also asks six or seven
                 questions about what you have seen and paid.
               </p>
             )}

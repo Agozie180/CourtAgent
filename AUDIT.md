@@ -36,6 +36,11 @@ before the fix**. Checked on 2026-10-14.
 | F-26 | The exit letter said "We signed" when the landlord had not, and "lawful possession" after the term had ended. Typed text could add a paragraph. | High | Wording follows the real signature state and dates, with a note; free text is one line. | A-8 |
 | F-27 | A Sepolia share link opened in a fresh browser looked up the viewer's empty Demo Mode and showed a false NOT RECORDED. | High | Links carry `net=sepolia`; the verify page offers the switch. | A-9 |
 | F-28 | A mined but reverted transaction was reported as recorded. A single public RPC was a single point of failure. A fresh clone with no env variable ran in Demo Mode only. | High | Receipt status is checked, reads fall back across several RPCs, and the committed deployment is the default registry. | A-10, A-11 |
+| F-29 | Homepage copy sent visitors to "the code", "the test files" and "the README" even while the repo is private, and promised "seven" questions when the seventh appears only for an agent. | Low | The repo link and wording show only when `NEXT_PUBLIC_REPO_PUBLIC=true`; copy says "six or seven". | `components/home-page.test.tsx`, `flows.test.tsx` R-2 |
+| F-30 | Legal aid in the rent and widow steps named bodies but gave no way to reach them. | Medium | Official links, and phone numbers only where an official page prints one, each with its source and verification date. | `lib/domain/requests.test.ts` R-3, `flows.test.tsx` R-3 |
+| F-31 | The exit reply mixed "you" and "he" when the tenant wrote about the landlord in the third person. | Medium | The prompt asks for "you"; third-person wording is flagged and holds the letter back until fixed. | `requests.test.ts` R-4, `flows.test.tsx` R-4 |
+| F-32 | The widow notice followed the chosen state even when the recorded address named another. | Medium | A warning above the notice; street names such as "Delta Street, Lagos" do not trigger it. | `requests.test.ts` R-5, `flows.test.tsx` R-5 |
+| F-33 | A mistyped fingerprint on `/verify` got a vague "not valid yet" hint. | Low | Checked for 0x plus 64 hex characters before any lookup, with a specific error. | `requests.test.ts` R-6, `flows.test.tsx` R-6 |
 
 ## What the audit did not fix, stated plainly
 
@@ -45,7 +50,7 @@ before the fix**. Checked on 2026-10-14.
   the README cannot drift from the code. Do not tune rules on the held-out items. Add new held-out items instead.
 - **Both sets were written by one person**, the same one who wrote the rules. They are regression checks, not an
   accuracy measurement on real scams.
-- **The seven yes/no questions carry most of the score** and do not depend on wording, but a user can answer them
+- **The six or seven yes/no questions carry most of the score** and do not depend on wording, but a user can answer them
   wrongly.
 - **AI paths** are tested with mocked HTTP only.
 - **Wallet mode** is untested in a real browser wallet. **No Sepolia deployment** has been made from this environment.
@@ -56,6 +61,6 @@ before the fix**. Checked on 2026-10-14.
 ## How to re-run the audit
 
 ```bash
-npm run check      # typecheck, lint, 138 unit, UI, flow and API tests, 11 contract tests
+npm run check      # typecheck, lint, 159 unit, UI, flow and API tests, 11 contract tests
 npm run measure    # corpus, held-out and tamper-sweep numbers
 ```

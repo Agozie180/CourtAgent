@@ -116,7 +116,7 @@ describe("rent flow", () => {
     for (const answer of answers) await say(answer);
     fireEvent.click(screen.getByRole("button", { name: /continue to the landlord check/i }));
 
-    // all seven questions are listed as unanswered, then answered
+    // the questions are listed as unanswered, then answered
     expect(screen.getByText(/answer these to run the check/i)).toBeTruthy();
     for (const group of screen.getAllByRole("group", { name: /\?$/ })) {
       fireEvent.click(within(group).getByRole("button", { name: /^no$/i }));
@@ -185,6 +185,67 @@ describe("rent flow", () => {
   });
 });
 
+describe("rent flow step 5: letter voice and legal aid", () => {
+  async function reachStepFive() {
+    render(<App><RentFlow /></App>);
+    for (const answer of ["Lagos", "2 million", "2", "yes", "Yaba", "Mr Chinedu Eze", "Ngozi Okoro", "1.8 million", "12 months", "0", "yearly", "2026-12-01", "12 months"]) await say(answer);
+    fireEvent.click(screen.getByRole("button", { name: /continue to the landlord check/i }));
+    for (const group of screen.getAllByRole("group", { name: /\?$/ })) fireEvent.click(within(group).getByRole("button", { name: /^no$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /run the check/i }));
+    await screen.findByText(/RISK/);
+    fireEvent.click(screen.getByRole("button", { name: /continue to the agreement/i }));
+    fireEvent.change(screen.getByLabelText("Property address"), { target: { value: "Flat 3, Lekki" } });
+    fireEvent.click(screen.getByRole("button", { name: /continue to record and sign/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^record and sign$/i }));
+    await screen.findByText("WAITING FOR SIGNATURES");
+    fireEvent.click(screen.getByText("5. If the landlord pushes"));
+    fireEvent.change(screen.getByLabelText("Date of the demand"), { target: { value: "2026-12-20" } });
+    fireEvent.change(screen.getByLabelText("Date of your letter"), { target: { value: "2026-12-21" } });
+  }
+
+  it("R-2: asks six questions, and a seventh only when an agent is involved", async () => {
+    render(<App><RentFlow /></App>);
+    for (const answer of ["Lagos", "2 million", "2", "yes", "Yaba", "Mr Chinedu Eze", "Ngozi Okoro", "1.8 million", "12 months", "0", "yearly", "2026-12-01", "12 months"]) await say(answer);
+    fireEvent.click(screen.getByRole("button", { name: /continue to the landlord check/i }));
+    expect(screen.getAllByRole("group", { name: /\?$/ })).toHaveLength(6);
+    expect(screen.queryByText(/letter from the owner allowing them/i)).toBeNull();
+    const agent = screen.getByRole("group", { name: /dealing with an agent/i });
+    fireEvent.click(within(agent).getByRole("button", { name: /^yes$/i }));
+    expect(screen.getAllByRole("group", { name: /\?$/ })).toHaveLength(7);
+    expect(screen.getByRole("group", { name: /letter from the owner allowing them/i })).toBeTruthy();
+  });
+
+  it("R-4: asks the tenant to write to the landlord as you, and holds the letter back while it says he", async () => {
+    await reachStepFive();
+    expect(screen.getByLabelText(/what did the landlord say/i).getAttribute("placeholder")).toContain("said you will change the lock");
+    expect(screen.getByText(/On that date, you/)).toBeTruthy();
+    const box = screen.getByLabelText(/what did the landlord say/i);
+    fireEvent.change(box, { target: { value: "told me to pack out and said he will change the lock" } });
+    expect(screen.getByText(/Write it to the landlord/)).toBeTruthy();
+    expect(screen.getByText(/Replace "he" with "you"/)).toBeTruthy();
+    expect(screen.queryByText(/RESPONSE TO YOUR DEMAND/)).toBeNull();
+    fireEvent.change(box, { target: { value: "told me to pack out and said you will change the lock" } });
+    expect(screen.queryByText(/Write it to the landlord/)).toBeNull();
+    await screen.findByText(/RESPONSE TO YOUR DEMAND/);
+    expect(document.querySelector(".sheet-text")?.textContent).toContain("you told me to pack out and said you will change the lock");
+  });
+
+  it("R-3: shows the three official links and the sourced phone numbers for Lagos", async () => {
+    await reachStepFive();
+    const aid = screen.getByRole("region", { name: /free legal help/i });
+    const hrefs = within(aid).getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining([
+      "https://www.legalaidcouncil.gov.ng",
+      "https://fida.org.ng/how-to-access-our-services/",
+      "https://lagosstatemoj.org/public-defender/",
+      "tel:+2347031915990",
+      "tel:+2347088496115",
+    ]));
+    expect(within(aid).getByText("+234 7031915990")).toBeTruthy();
+    expect(within(aid).getByText(/confirm on the official site/i)).toBeTruthy();
+  });
+});
+
 describe("verify flow", () => {
   it("tells the visitor what to do on empty input, then verifies pasted text", async () => {
     path = "/verify";
@@ -193,6 +254,26 @@ describe("verify flow", () => {
     fireEvent.change(screen.getByLabelText(/exact text of the document/i), { target: { value: "Some text nobody recorded." } });
     expect(screen.queryByText("Paste the document text to check it.")).toBeNull();
     await screen.findByText("NOT RECORDED");
+  });
+
+  it("R-6: checks a typed fingerprint before looking it up and says what is wrong", async () => {
+    path = "/verify";
+    render(<App><VerifyView /></App>);
+    const box = screen.getByLabelText(/look up a fingerprint/i) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: "0x1234" } });
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/64 characters after the 0x/);
+    expect(alert.textContent).toMatch(/Nothing was looked up/);
+    expect(box.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.queryByText("NOT RECORDED")).toBeNull();
+
+    fireEvent.change(box, { target: { value: "not a hash" } });
+    expect((await screen.findByRole("alert")).textContent).toMatch(/starts with 0x/);
+
+    fireEvent.change(box, { target: { value: `0x${"ab".repeat(32)}` } });
+    await screen.findByText("NOT RECORDED"); // a well-formed fingerprint is looked up
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(box.getAttribute("aria-invalid")).toBeNull();
   });
 });
 
@@ -251,6 +332,51 @@ describe("widow flow", () => {
     const letter = Array.from(document.querySelectorAll(".sheet-text")).pop()?.textContent ?? "";
     expect(letter).toMatch(/Ukeje v Ukeje \(2014\).*daughter/s);
     expect(letter).not.toMatch(/Lagos State Office of the Public Defender/);
+  });
+});
+
+describe("widow notice: state warning and legal aid", () => {
+  const fill = (label: RegExp | string, value: string) => fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  async function recordProperty(description: string) {
+    path = "/widow";
+    render(<App><WidowFlow /></App>);
+    fill("Name of the person registering", "Emeka Okoro");
+    fill("Describe the property", description);
+    fill("Documents you hold", "Deed of assignment");
+    fill("Where the original documents are kept", "Home");
+    fireEvent.click(await screen.findByRole("button", { name: /^record and sign$/i }));
+    await screen.findByText("FULLY SIGNED");
+    fill("Your name", "Mrs Ngozi Okoro");
+    fill("Name of your late husband", "Emeka Okoro");
+  }
+
+  it("R-5: warns above the notice when the chosen state is not the state in the address, and clears when they agree", async () => {
+    await recordProperty("Family house at 4 Bode Street, Surulere, Lagos");
+    expect(screen.queryByText(/The property address you recorded mentions/)).toBeNull(); // Lagos selected, Lagos in the address
+    fill("State where the property is", "Enugu");
+    const warning = screen.getByText(/The property address you recorded mentions Lagos State, but the state chosen for this notice is Enugu State/);
+    const notice = document.querySelector('[aria-label="Notice to the family"]') as HTMLElement;
+    expect(notice).toBeTruthy();
+    // the warning comes before the notice in the page
+    expect(warning.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fill("State where the property is", "Lagos");
+    expect(screen.queryByText(/The property address you recorded mentions/)).toBeNull();
+  });
+
+  it("R-5: an address with no state name gives no warning, and a street named after a state does not either", async () => {
+    await recordProperty("Family house at 12 Delta Street, Lagos");
+    expect(screen.queryByText(/The property address you recorded mentions/)).toBeNull();
+  });
+
+  it("R-3: lists the official legal aid links under the notice, and the Lagos office only for Lagos", async () => {
+    await recordProperty("Family house at 4 Bode Street, Surulere, Lagos");
+    const aid = screen.getByRole("region", { name: /free legal help/i });
+    expect(within(aid).getByRole("link", { name: "Lagos State Office of the Public Defender: official website" })).toBeTruthy();
+    const hrefs = () => within(screen.getByRole("region", { name: /free legal help/i })).getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs()).toContain("https://lagosstatemoj.org/public-defender/");
+    fill("State where the property is", "Enugu");
+    expect(hrefs()).not.toContain("https://lagosstatemoj.org/public-defender/");
+    expect(hrefs()).toEqual(expect.arrayContaining(["https://www.legalaidcouncil.gov.ng", "https://fida.org.ng/how-to-access-our-services/"]));
   });
 });
 

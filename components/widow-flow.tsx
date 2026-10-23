@@ -9,10 +9,10 @@ import { buildVerifyPath } from "@/lib/share";
 import { hashDocument } from "@/lib/hash/document";
 import type { TxResult } from "@/lib/chain/types";
 import { DEMO_OWNER, DEMO_WITNESS } from "@/lib/chain/demo";
-import { NIGERIAN_STATES, stateLabel } from "@/lib/domain/jurisdiction";
+import { NIGERIAN_STATES, stateLabel, stateMismatchWarning } from "@/lib/domain/jurisdiction";
 import { buildWidowLetter, type MarriageType } from "@/lib/domain/letters";
 import { buildPropertyRecord, validatePropertyRecord, type PropertyRecordInput } from "@/lib/domain/property";
-import { CopyButton, DocumentSheet, HashLine, IssueList, Notice, StateBanner, TxLine, errorMessage } from "./bits";
+import { CopyButton, DocumentSheet, HashLine, IssueList, LegalAidList, Notice, StateBanner, TxLine, errorMessage } from "./bits";
 import { RecordStatus } from "./record-status";
 import { DEMO_ACTORS, useSession } from "./session-provider";
 
@@ -70,6 +70,8 @@ export function WidowFlow() {
   const letterDate = letterDateInput || today;
 
   const issues = useMemo(() => validatePropertyRecord(form), [form]);
+  // The notice follows the state chosen below. If the recorded address names a different state, say so before the notice.
+  const stateWarning = stateMismatchWarning(form.propertyDescription, state);
   const text = issues.length === 0 ? buildPropertyRecord(form) : "";
   const hash = text ? hashDocument(text) : null;
   const { record, error: lookupError, refresh: refreshRecord } = useRegistryRecord(session.registry, hash);
@@ -375,6 +377,7 @@ export function WidowFlow() {
             </div>
             </fieldset>
             <StateBanner state={state} />
+            {stateWarning ? <Notice tone="warn">{stateWarning}</Notice> : null}
             {letter ? (
               <>
                 <DocumentSheet title="Notice to the family" text={letter.letter} />
@@ -388,6 +391,7 @@ export function WidowFlow() {
             ) : (
               <Notice>Enter your name and your late husband name to see the notice.</Notice>
             )}
+            <LegalAidList state={state} />
           </>
         )}
       </section>

@@ -109,3 +109,9 @@ Open this repo, read this file and `git log`, run `npm install && npm run check`
 - Share links carry `net=sepolia`; /verify offers a switch to Sepolia (F-27). Reverted transactions throw, reads use fallback RPCs, and lib/chain/config.ts defaults to deployments/sepolia.json (F-28).
 - Left alone on purpose: the `at` event parameter name in the contract (renaming changes the ABI and needs a redeploy).
 - Still to do by the owner: set NEXT_PUBLIC_SITE_URL and hosted URL, record the demo video, test MetaMask on Sepolia once, test real AI keys, lawyer review, submit before 2026/11/01 02:01 Lagos time.
+
+## Session 2026-10-23 (evening): six requested fixes (F-29 to F-33)
+- Homepage: repo/README/test/code mentions removed, GitHub link only when NEXT_PUBLIC_REPO_PUBLIC=true; "six or seven" questions.
+- Legal aid: components/bits.tsx LegalAidList on rent step 5 and under the widow notice; data in lib/domain/legal-aid.ts with source and date per phone. Re-check numbers before submission.
+- Exit letter must address the landlord as "you" (demandPersonIssue). Widow state mismatch warning (stateMismatchWarning). Verify page validates the fingerprint (hashProblem).
+- 159 app tests pass; build passes.
