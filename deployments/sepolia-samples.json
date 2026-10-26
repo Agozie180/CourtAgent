@@ -1,0 +1,30 @@
+{
+  "note": "Supplied by the project owner from their own end-to-end run on 2026-10-25. Not yet checked against the chain by the build tooling. Run `npm run verify:live` from a machine that can reach Sepolia to check every line.",
+  "contract": "0xD64d1FD08e81bbF5aAa194a138d005AA4d4E75Ff",
+  "chainId": 11155111,
+  "records": [
+    {
+      "name": "Sample tenancy agreement (Flat 3, 12 Akin Adesola Street, Lekki, Lagos)",
+      "kind": "TENANCY_AGREEMENT",
+      "fingerprint": "0x63098f33be9b69b4595ba3dc57af2f05e495da699e287c66e8322d81f0cd8ecc",
+      "parties": ["0x4C85E4ba5Ab7d48535caFE21dD7D1ab3Bf890638", "0x419844C8ac6314f6ffa741541635d13526dFE1eC"],
+      "fullySigned": true,
+      "transactions": [
+        { "step": "Tenant records the agreement", "block": 11992097, "hash": "0xe24320f04386d10f135f4e223161c8b87678f2e3cd200042638404d49c204439", "from": "0x4C85E4ba5Ab7d48535caFE21dD7D1ab3Bf890638" },
+        { "step": "Tenant signs", "block": 11992100, "hash": "0x4ecc70128987a897c18eca1e8e734ebbab6dd43a86f07550ef9cefbf29eb7c53", "from": "0x4C85E4ba5Ab7d48535caFE21dD7D1ab3Bf890638" },
+        { "step": "Landlord signs, so the agreement is fully signed", "block": 11992147, "hash": "0xf0a93c317f02ecae3018fed86d86cface94f3aab53aacfc01e54601d74ef1b93", "from": "0x419844C8ac6314f6ffa741541635d13526dFE1eC" }
+      ]
+    },
+    {
+      "name": "Widow's property record (Mrs Ngozi Okoro, 4 Bode Street, Surulere, Lagos)",
+      "kind": "PROPERTY_RECORD",
+      "fingerprint": "0x2a7b917d485230c59f7695476039d3ad8bf5d92d5712c0a811b739cd14c0e19b",
+      "parties": ["0x4C85E4ba5Ab7d48535caFE21dD7D1ab3Bf890638"],
+      "fullySigned": true,
+      "transactions": [
+        { "step": "Record created", "block": 11992202, "hash": "0x5fddb282186c5efa9dcd9eb56e5852c9c964160479768167538f7ba094f2dbaf", "from": "0x4C85E4ba5Ab7d48535caFE21dD7D1ab3Bf890638" },
+        { "step": "Owner signs, so the record is fully signed", "block": 11992204, "hash": "0xec0e9cea1edd2fa0511c3997591681ce624ad67f8b3906e44e114d22db701fb8", "from": "0x4C85E4ba5Ab7d48535caFE21dD7D1ab3Bf890638" }
+      ]
+    }
+  ]
+}

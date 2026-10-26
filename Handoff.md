@@ -115,3 +115,6 @@ Open this repo, read this file and `git log`, run `npm install && npm run check`
 - Legal aid: components/bits.tsx LegalAidList on rent step 5 and under the widow notice; data in lib/domain/legal-aid.ts with source and date per phone. Re-check numbers before submission.
 - Exit letter must address the landlord as "you" (demandPersonIssue). Widow state mismatch warning (stateMismatchWarning). Verify page validates the fingerprint (hashProblem).
 - 159 app tests pass; build passes.
+
+## Sepolia sample records (2026-10-26)
+The owner supplied two end-to-end records (a signed tenancy agreement and a signed widow property record) in `deployments/sepolia-samples.json` and the README. The build sandbox cannot reach Sepolia, so they are NOT yet machine-checked. Run `npm run verify:live` from a machine with internet; it checks every transaction (success, sent to the contract, block, sender) and the registry record. Fix or remove any line it reports before submitting.

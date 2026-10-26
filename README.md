@@ -158,6 +158,19 @@ them under Settings, Environment Variables, then **redeploy** (a running deploym
 says which mode it is really in; open `/api/status` to see it, including a hint if a key is stored under a name that is
 not read. A fresh clone already points at the committed Sepolia deployment, so `NEXT_PUBLIC_REGISTRY_ADDRESS` is only needed to use a different contract. Set `NEXT_PUBLIC_REPO_PUBLIC=true` to show the "Open source" link once the repo is public.
 
+### Live on Sepolia: sample records
+
+An end-to-end run on 2026-10-25 produced two records on the contract above. The list is in
+`deployments/sepolia-samples.json`. It was supplied by the project owner and is checked by `npm run verify:live`, which
+reads each transaction and the registry and reports any mismatch.
+
+| Record | Fingerprint | Steps |
+| --- | --- | --- |
+| Tenancy agreement, Lekki, Lagos (2 parties, fully signed) | `0x63098f33…0cd8ecc` | [record, block 11992097](https://sepolia.etherscan.io/tx/0xe24320f04386d10f135f4e223161c8b87678f2e3cd200042638404d49c204439) · [tenant signs, 11992100](https://sepolia.etherscan.io/tx/0x4ecc70128987a897c18eca1e8e734ebbab6dd43a86f07550ef9cefbf29eb7c53) · [landlord signs, 11992147](https://sepolia.etherscan.io/tx/0xf0a93c317f02ecae3018fed86d86cface94f3aab53aacfc01e54601d74ef1b93) |
+| Widow's property record, Surulere, Lagos (1 party, fully signed) | `0x2a7b917d…4c0e19b` | [record, block 11992202](https://sepolia.etherscan.io/tx/0x5fddb282186c5efa9dcd9eb56e5852c9c964160479768167538f7ba094f2dbaf) · [owner signs, 11992204](https://sepolia.etherscan.io/tx/0xec0e9cea1edd2fa0511c3997591681ce624ad67f8b3906e44e114d22db701fb8) |
+
+To check one by hand, open a transaction link and confirm that **To** is the contract `0xD64d…75Ff` and the status is Success.
+
 ### Optional: live on Ethereum Sepolia
 
 1. Make a throwaway wallet and get test ETH from a Sepolia faucet (for example the Alchemy or Google Cloud Sepolia faucets).
