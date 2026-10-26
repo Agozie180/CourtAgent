@@ -24,6 +24,6 @@ Record several takes. Narrate step 1 slowly: it is the moment a judge cannot fak
 - [ ] Try real Anthropic and OpenAI keys once; confirm the OpenAI model name
 - [ ] Try Sepolia mode with MetaMask once
 - [ ] Lawyer reviews the law notes, or keep the "not reviewed" wording
-- [ ] Remove or gitignore `Handoff.md`; confirm no secrets (`git grep -nI "PRIVATE_KEY"`)
+- [x] `Handoff.md` is removed from the repo and gitignored; confirm no secrets (`git grep -nI "PRIVATE_KEY"`)
 - [ ] Repo description names the event; commits authored by Agozie180 only
 - [ ] Submit on DoraHacks before 2026/11/01 02:01 Lagos time, with a buffer

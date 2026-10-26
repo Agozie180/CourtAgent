@@ -12,3 +12,6 @@ coverage
 next-env.d.ts
 .DS_Store
 .vercel
+
+# Local handoff notes (not published)
+Handoff.md
